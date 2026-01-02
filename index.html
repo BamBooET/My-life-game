@@ -14,7 +14,7 @@
         .task { display: flex; justify-content: space-between; align-items: center; padding: 12px; margin: 8px 0; background: #f9f9f9; border-radius: 8px; }
         .task button { background: #4CAF50; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-size: 15px; cursor: pointer; margin-left: 5px; }
         .task button.cancel { background: #f44336; }
-        .task button:disabled { background: #a5d6a7; }
+        .task button:disabled { background: #a5d6a7; opacity: 0.6; }
         .task.completed { opacity: 0.6; order: 2; }
         .task:not(.completed) { order: 1; }
         .task-list { display: flex; flex-direction: column; }
@@ -93,20 +93,18 @@
     </div>
 
     <script>
-        // 每日固定任務
         const dailyTasks = [
             {name: "鏟貓砂、放飼料", points: 1},
             {name: "小咪刷牙/小咪梳毛（交替）", points: 1},
-            {name: "早睡", points: 3}, // index 2，將特別處理
+            {name: "早睡", points: 3}, // index 2
             {name: "吃夠營養", points: 2},
             {name: "喝水 3500ml", points: 2},
             {name: "睡前伸展按摩", points: 1},
             {name: "陪日出玩", points: 1},
             {name: "記帳", points: 1},
-            {name: "換水（每兩天一次）", points: 1}, // index 8，手動點擊
+            {name: "換水（每兩天一次）", points: 1}, // index 8
         ];
 
-        // 每月任務
         const monthlyTasks = [
             {name: "看一本書", points: 50},
             {name: "換洗床單棉被", points: 5},
@@ -114,12 +112,12 @@
         ];
 
         let points = 0;
-        let completed = {};           // 每日
-        let monthlyCompleted = {};    // 每月
-        let tempTasks = [];           // 臨時任務 {name, points}
-        let tempCompleted = {};       // 臨時完成狀態
+        let completed = {};           // 每日任務完成狀態
+        let monthlyCompleted = {};
+        let tempTasks = [];
+        let tempCompleted = {};
         let redeemCount = {phone: 0, game: 0};
-        let workoutCount = 0;         // 健身+核心互通
+        let workoutCount = 0;
         let materialCount = 0;
         let workHours = 0;
         let studyHours = 0;
@@ -149,22 +147,17 @@
                 workHours = data.workHours || 0;
                 studyHours = data.studyHours || 0;
             } else if (data.weekStart !== weekStart) {
-                // 新週，重置連擊
                 workoutCount = 0; materialCount = 0;
                 completed = {}; redeemCount = {phone: 0, game: 0};
                 workHours = 0; studyHours = 0;
             } else if (data.month !== thisMonth) {
-                // 新月，重置每月
                 monthlyCompleted = {};
                 completed = {}; redeemCount = {phone: 0, game: 0};
                 workHours = 0; studyHours = 0;
             } else {
-                // 新一天，只重置每日
                 completed = {}; redeemCount = {phone: 0, game: 0};
                 workHours = 0; studyHours = 0;
                 points = data.points || 0;
-                workoutCount = data.workoutCount || 0;
-                materialCount = data.materialCount || 0;
             }
             updateAll();
         }
@@ -192,9 +185,11 @@
             updateDailyTasks();
             updateMonthlyTasks();
             updateTempTasks();
-            updateWorkout();
-            updateMaterial();
-            updateWorkStudy();
+            updateCounters();
+        }
+
+        function updatePoints() {
+            document.getElementById("points").textContent = points;
         }
 
         function updateDailyTasks() {
@@ -275,33 +270,32 @@
             });
         }
 
-        function updateWorkout() {
-            document.getElementById("workout-count").textContent = workoutCount;
-            const pointsMap = [1,1,2,2,3,3];
-            document.getElementById("workout-next").textContent = workoutCount < 6 ? pointsMap[workoutCount] : 4;
-            document.querySelector('button[onclick="undoWorkout()"]').disabled = workoutCount === 0;
-        }
-
-        function updateMaterial() {
-            document.getElementById("material-count").textContent = materialCount;
-            document.getElementById("material-next").textContent = materialCount + 2;
-        }
-
-        function updateWorkStudy() {
+        function updateCounters() {
             document.getElementById("work-hours").textContent = workHours;
-            document.querySelector('button[onclick="undoWork()"]').disabled = workHours === 0;
             document.getElementById("study-hours").textContent = studyHours;
-            document.querySelector('button[onclick="undoStudy()"]').disabled = studyHours === 0;
+            document.getElementById("workout-count").textContent = workoutCount;
+            document.getElementById("material-count").textContent = materialCount;
+
+            const workoutPoints = [1,1,2,2,3,3];
+            document.getElementById("workout-next").textContent = workoutCount < 6 ? workoutPoints[workoutCount] : 4;
+            document.getElementById("material-next").textContent = materialCount + 2;
+
+            // 啟用/禁用取消按鈕
+            document.querySelectorAll('button.cancel').forEach(btn => {
+                btn.disabled = true; // 先全禁用，再根據條件啟用
+            });
+            if (workHours > 0) document.querySelector('button[onclick="undoWork()"]').disabled = false;
+            if (studyHours > 0) document.querySelector('button[onclick="undoStudy()"]').disabled = false;
+            if (workoutCount > 0) document.querySelector('button[onclick="undoWorkout()"]').disabled = false;
         }
 
         function completeTask(index, basePts) {
             if (completed[index]) return;
             let actualPts = basePts;
-            if (index === 2) { // 早睡
+            if (index === 2) {
                 let hours = new Date().getHours();
                 if (hours >= 23) return;
                 if (hours >= 22) actualPts = 1;
-                else actualPts = 3;
             }
             completed[index] = true;
             points += actualPts;
@@ -315,7 +309,7 @@
             let actualPts = basePts;
             if (index === 2) {
                 let hours = new Date().getHours();
-                if (hours >= 22) actualPts = 1; else actualPts = 3;
+                if (hours >= 22) actualPts = 1;
             }
             completed[index] = false;
             points -= actualPts;
