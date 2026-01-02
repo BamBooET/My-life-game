@@ -20,7 +20,6 @@
         .task-list { display: flex; flex-direction: column; }
         .points { font-size: 28px; font-weight: bold; text-align: center; color: #4a6da7; margin: 20px 0; }
         .reward button { background: #ff9800; width: 100%; padding: 15px; margin: 10px 0; font-size: 18px; }
-        .counter { font-size: 18px; color: #4a6da7; }
         .effect { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 50px; color: #4CAF50; pointer-events: none; animation: fade 1s; }
         @keyframes fade { 0% {opacity: 0; transform: translate(-50%, -50%) scale(0);} 50% {opacity: 1; transform: translate(-50%, -50%) scale(1.2);} 100% {opacity: 0; transform: translate(-50%, -50%) scale(1);} }
         #temp-input { margin: 15px 0; }
@@ -96,13 +95,13 @@
         const dailyTasks = [
             {name: "鏟貓砂、放飼料", points: 1},
             {name: "小咪刷牙/小咪梳毛（交替）", points: 1},
-            {name: "早睡", points: 3}, // index 2
+            {name: "早睡", points: 3},
             {name: "吃夠營養", points: 2},
             {name: "喝水 3500ml", points: 2},
             {name: "睡前伸展按摩", points: 1},
             {name: "陪日出玩", points: 1},
             {name: "記帳", points: 1},
-            {name: "換水（每兩天一次）", points: 1}, // index 8
+            {name: "換水（每兩天一次）", points: 1},
         ];
 
         const monthlyTasks = [
@@ -112,7 +111,7 @@
         ];
 
         let points = 0;
-        let completed = {};           // 每日任務完成狀態
+        let completed = {};
         let monthlyCompleted = {};
         let tempTasks = [];
         let tempCompleted = {};
@@ -122,9 +121,12 @@
         let workHours = 0;
         let studyHours = 0;
 
-        const today = new Date().toDateString();
-        const thisMonth = new Date().getMonth() + 1 + "-" + new Date().getFullYear();
-        const weekStart = getWeekStart(new Date());
+        const today = new Date();
+        const currentDay = today.getDate();
+        const currentMonth = today.getMonth() + 1; // 1-12
+        const currentYear = today.getFullYear();
+        const thisMonthKey = currentYear + "-" + currentMonth;
+        const weekStart = getWeekStart(today);
 
         function getWeekStart(date) {
             const d = new Date(date);
@@ -135,10 +137,23 @@
 
         function loadData() {
             const data = JSON.parse(localStorage.getItem("lifeGameData") || "{}");
-            if (data.weekStart === weekStart && data.date === today && data.month === thisMonth) {
+
+            // 檢查是否換月或換雙月
+            const lastMonthKey = data.month;
+            if (lastMonthKey !== thisMonthKey) {
+                // 每月任務重置
+                monthlyCompleted[0] = false;
+                monthlyCompleted[1] = false;
+                // 雙月任務只在單數月1號重置
+                if (currentDay === 1 && currentMonth % 2 === 1) {
+                    monthlyCompleted[2] = false;
+                }
+            }
+
+            if (data.weekStart === weekStart && data.date === today.toDateString() && data.month === thisMonthKey) {
                 points = data.points || 0;
                 completed = data.completed || {};
-                monthlyCompleted = data.monthlyCompleted || {};
+                monthlyCompleted = data.monthlyCompleted || monthlyCompleted;
                 tempTasks = data.tempTasks || [];
                 tempCompleted = data.tempCompleted || {};
                 redeemCount = data.redeemCount || {phone: 0, game: 0};
@@ -148,10 +163,6 @@
                 studyHours = data.studyHours || 0;
             } else if (data.weekStart !== weekStart) {
                 workoutCount = 0; materialCount = 0;
-                completed = {}; redeemCount = {phone: 0, game: 0};
-                workHours = 0; studyHours = 0;
-            } else if (data.month !== thisMonth) {
-                monthlyCompleted = {};
                 completed = {}; redeemCount = {phone: 0, game: 0};
                 workHours = 0; studyHours = 0;
             } else {
@@ -164,9 +175,9 @@
 
         function saveData() {
             localStorage.setItem("lifeGameData", JSON.stringify({
-                date: today,
+                date: today.toDateString(),
                 weekStart,
-                month: thisMonth,
+                month: thisMonthKey,
                 points,
                 completed,
                 monthlyCompleted,
@@ -202,8 +213,7 @@
                 let displayName = task.name;
                 let displayPoints = task.points;
                 let disabled = false;
-                let currentTime = new Date();
-                let hours = currentTime.getHours();
+                let hours = today.getHours();
 
                 if (i === 2) { // 早睡
                     if (hours >= 23) {
@@ -214,7 +224,6 @@
                         displayName = "早睡（23:00 前）";
                         displayPoints = 1;
                     } else {
-                        displayName = "早睡（22:00 前）";
                         displayPoints = 3;
                     }
                 }
@@ -280,10 +289,8 @@
             document.getElementById("workout-next").textContent = workoutCount < 6 ? workoutPoints[workoutCount] : 4;
             document.getElementById("material-next").textContent = materialCount + 2;
 
-            // 啟用/禁用取消按鈕
-            document.querySelectorAll('button.cancel').forEach(btn => {
-                btn.disabled = true; // 先全禁用，再根據條件啟用
-            });
+            // 取消按鈕狀態
+            document.querySelectorAll('button.cancel').forEach(btn => btn.disabled = true);
             if (workHours > 0) document.querySelector('button[onclick="undoWork()"]').disabled = false;
             if (studyHours > 0) document.querySelector('button[onclick="undoStudy()"]').disabled = false;
             if (workoutCount > 0) document.querySelector('button[onclick="undoWorkout()"]').disabled = false;
@@ -293,7 +300,7 @@
             if (completed[index]) return;
             let actualPts = basePts;
             if (index === 2) {
-                let hours = new Date().getHours();
+                let hours = today.getHours();
                 if (hours >= 23) return;
                 if (hours >= 22) actualPts = 1;
             }
@@ -308,7 +315,7 @@
             if (!completed[index]) return;
             let actualPts = basePts;
             if (index === 2) {
-                let hours = new Date().getHours();
+                let hours = today.getHours();
                 if (hours >= 22) actualPts = 1;
             }
             completed[index] = false;
