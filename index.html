@@ -306,11 +306,11 @@
             document.getElementById("workout-next").textContent = workoutCount < 6 ? workoutPoints[workoutCount] : 4;
             document.getElementById("material-next").textContent = materialCount + 2;
 
-            document.querySelectorAll('.cancel').forEach(btn => btn.disabled = true);
-            if (workHours > 0) document.querySelector('button[onclick="undoWork()"]').disabled = false;
-            if (studyHours > 0) document.querySelector('button[onclick="undoStudy()"]').disabled = false;
-            if (workoutCount > 0) document.querySelector('button[onclick="undoWorkout()"]').disabled = false;
-            if (materialCount > 0) document.querySelector('button[onclick="undoMaterial()"]').disabled = false;
+            // 只控制計數型任務的 -1 按鈕
+            document.querySelector('button[onclick="undoWork()"]').disabled = workHours === 0;
+            document.querySelector('button[onclick="undoStudy()"]').disabled = studyHours === 0;
+            document.querySelector('button[onclick="undoWorkout()"]').disabled = workoutCount === 0;
+            document.querySelector('button[onclick="undoMaterial()"]').disabled = materialCount === 0;
         }
 
         function completeTask(index, basePts) {
