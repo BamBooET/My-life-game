@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的生活遊戲化系統 v4</title>
+    <style>
+        body { font-family: Helvetica, Arial, sans-serif; background: #f0f2f5; margin: 0; padding: 10px; }
+        h1 { text-align: center; color: #333; }
+        .section { background: white; border-radius: 12px; padding: 15px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        h2 { color: #4a6da7; border-bottom: 2px solid #4a6da7; padding-bottom: 5px; }
+        .task-list { list-style: none; padding: 0; }
+        .task { display: flex; justify-content: space-between; align-items: center; padding: 12px; margin: 8px 0; background: #f9f9f9; border-radius: 8px; }
+        .task button { background: #4CAF50; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-size: 15px; cursor: pointer; margin-left: 5px; }
+        .task button.cancel { background: #f44336; }
+        .task button:disabled { background: #a5d6a7; }
+        .task.completed { opacity: 0.6; order: 2; }
+        .task:not(.completed) { order: 1; }
+        .task-list { display: flex; flex-direction: column; }
+        .points { font-size: 28px; font-weight: bold; text-align: center; color: #4a6da7; margin: 20px 0; }
+        .reward button { background: #ff9800; width: 100%; padding: 15px; margin: 10px 0; font-size: 18px; }
+        .counter { font-size: 18px; color: #4a6da7; }
+        .effect { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 50px; color: #4CAF50; pointer-events: none; animation: fade 1s; }
+        @keyframes fade { 0% {opacity: 0; transform: translate(-50%, -50%) scale(0);} 50% {opacity: 1; transform: translate(-50%, -50%) scale(1.2);} 100% {opacity: 0; transform: translate(-50%, -50%) scale(1);} }
+        #temp-input { margin: 15px 0; }
+        #temp-input input { padding: 10px; width: 60%; margin-right: 5px; }
+        #temp-input button { padding: 10px; }
+    </style>
+</head>
+<body>
+    <h1>我的生活遊戲化系統 v4</h1>
+    <div class="points">目前積分: <span id="points">0</span></div>
+
+    <div class="section">
+        <h2>每日任務</h2>
+        <ul class="task-list" id="daily-tasks"></ul>
+    </div>
+
+    <div class="section">
+        <h2>每週連擊任務（健身+核心 互通，總上限 6 次）</h2>
+        <div class="task">
+            <span>健身／核心訓練（本週 <span id="workout-count">0</span>/6）－ 下次 +<span id="workout-next">1</span> 分</span>
+            <button onclick="addWorkout()">+1 次（健身或核心）</button>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>每週任務 - 做教材</h2>
+        <div class="task">
+            <span>做教材（本週 <span id="material-count">0</span> 個）－ 下次 +<span id="material-next">2</span> 分</span>
+            <button onclick="addMaterial()">+1 個教材</button>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>每月任務</h2>
+        <ul class="task-list" id="monthly-tasks"></ul>
+    </div>
+
+    <div class="section">
+        <h2>臨時任務</h2>
+        <div id="temp-input">
+            <input type="text" id="temp-name" placeholder="任務名稱">
+            <input type="number" id="temp-points" placeholder="分數" min="1">
+            <button onclick="addTempTask()">新增臨時任務</button>
+        </div>
+        <ul class="task-list" id="temp-tasks"></ul>
+    </div>
+
+    <div class="section">
+        <h2>獎勵兌換</h2>
+        <button class="reward" onclick="redeem(3, 'phone')">玩手機 15 分鐘（3 分） - 每日上限 2 次</button>
+        <button class="reward" onclick="redeem(6, 'game')">玩電動 30 分鐘（6 分） - 每日上限 2 次</button>
+        <button class="reward" onclick="promptBuy()">買非生活必要東西（1 分 = 3 元）</button>
+    </div>
+
+    <script>
+        // 每日固定任務（新增「記帳」1分）
+        const dailyTasks = [
+            {name: "鏟貓砂、放飼料", points: 1},
+            {name: "小咪刷牙/小咪梳毛（交替）", points: 1},
+            {name: "早睡", points: 3}, // index 2，將特別處理
+            {name: "吃夠營養", points: 2},
+            {name: "喝水 3500ml", points: 2},
+            {name: "睡前伸展按摩", points: 1},
+            {name: "陪日出玩", points: 1},
+            {name: "記帳", points: 1}, // 新增
+        ];
+
+        // 每月任務
+        const monthlyTasks = [
+            {name: "看一本書", points: 50},
+            {name: "換洗床單棉被", points: 5},
+        ];
+
+        let points = 0;
+        let completed = {};           // 每日
+        let monthlyCompleted = {};    // 每月
+        let tempTasks = [];           // 臨時任務 {name, points, id}
+        let tempCompleted = {};       // 臨時完成狀態
+        let redeemCount = {phone: 0, game: 0};
+        let workoutCount = 0;         // 健身+核心互通
+        let materialCount = 0;
+
+        const today = new Date().toDateString();
+        const thisMonth = new Date().getMonth() + 1 + "-" + new Date().getFullYear();
+        const weekStart = getWeekStart(new Date());
+
+        function getWeekStart(date) {
+            const d = new Date(date);
+            const day = d.getDay();
+            const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+            return new Date(d.setDate(diff)).toDateString();
+        }
+
+        function loadData() {
+            const data = JSON.parse(localStorage.getItem("lifeGameData") || "{}");
+            if (data.weekStart === weekStart && data.date === today && data.month === thisMonth) {
+                points = data.points || 0;
+                completed = data.completed || {};
+                monthlyCompleted = data.monthlyCompleted || {};
+                tempTasks = data.tempTasks || [];
+                tempCompleted = data.tempCompleted || {};
+                redeemCount = data.redeemCount || {phone: 0, game: 0};
+                workoutCount = data.workoutCount || 0;
+                materialCount = data.materialCount || 0;
+            } else if (data.weekStart !== weekStart) {
+                workoutCount = 0; materialCount = 0;
+                completed = {}; redeemCount = {phone: 0, game: 0};
+            } else if (data.month !== thisMonth) {
+                monthlyCompleted = {};
+                completed = {}; redeemCount = {phone: 0, game: 0};
+            } else {
+                completed = {}; redeemCount = {phone: 0, game: 0};
+                points = data.points || 0;
+            }
+            updateAll();
+        }
+
+        function saveData() {
+            localStorage.setItem("lifeGameData", JSON.stringify({
+                date: today,
+                weekStart,
+                month: thisMonth,
+                points,
+                completed,
+                monthlyCompleted,
+                tempTasks,
+                tempCompleted,
+                redeemCount,
+                workoutCount,
+                materialCount
+            }));
+        }
+
+        function updateAll() {
+            updatePoints();
+            updateDailyTasks();
+            updateMonthlyTasks();
+            updateTempTasks();
+            updateWorkout();
+            updateMaterial();
+        }
+
+        function updatePoints() {
+            document.getElementById("points").textContent = points;
+        }
+
+        function updateDailyTasks() {
+            const list = document.getElementById("daily-tasks");
+            list.innerHTML = "";
+            dailyTasks.forEach((task, i) => {
+                const li = document.createElement("li");
+                li.className = "task" + (completed[i] ? " completed" : "");
+
+                let displayName = task.name;
+                let displayPoints = task.points;
+                let disabled = false;
+                let currentTime = new Date();
+                let hours = currentTime.getHours();
+
+                if (i === 2) { // 早睡任務
+                    if (hours >= 23) {
+                        disabled = true;
+                        displayName = "早睡（已超過23:00，失效）";
+                        displayPoints = 0;
+                    } else if (hours >= 22) {
+                        displayName = "早睡（23:00 前）";
+                        displayPoints = 1;
+                    } else {
+                        displayName = "早睡（22:00 前）";
+                        displayPoints = 3;
+                    }
+                }
+
+                li.innerHTML = `
+                    <span>${displayName} (+${displayPoints} 分)</span>
+                    <div>
+                        <button onclick="completeTask(${i}, ${task.points})" ${completed[i] || disabled ? "disabled" : ""}>
+                            ${completed[i] ? "已完成" : "完成"}
+                        </button>
+                        ${completed[i] ? `<button class="cancel" onclick="undoTask(${i})">取消</button>` : ""}
+                    </div>
+                `;
+                list.appendChild(li);
+            });
+        }
+
+        function updateMonthlyTasks() {
+            const list = document.getElementById("monthly-tasks");
+            list.innerHTML = "";
+            monthlyTasks.forEach((task, i) => {
+                const li = document.createElement("li");
+                li.className = "task" + (monthlyCompleted[i] ? " completed" : "");
+                li.innerHTML = `
+                    <span>${task.name} (+${task.points} 分)</span>
+                    <div>
+                        <button onclick="completeMonthly(${i}, ${task.points})" ${monthlyCompleted[i] ? "disabled" : ""}>
+                            ${monthlyCompleted[i] ? "已完成" : "完成"}
+                        </button>
+                        ${monthlyCompleted[i] ? `<button class="cancel" onclick="undoMonthly(${i})">取消</button>` : ""}
+                    </div>
+                `;
+                list.appendChild(li);
+            });
+        }
+
+        function updateTempTasks() {
+            const list = document.getElementById("temp-tasks");
+            list.innerHTML = "";
+            tempTasks.forEach((task, i) => {
+                const li = document.createElement("li");
+                li.className = "task" + (tempCompleted[i] ? " completed" : "");
+                li.innerHTML = `
+                    <span>${task.name} (+${task.points} 分)</span>
+                    <div>
+                        <button onclick="completeTemp(${i})" ${tempCompleted[i] ? "disabled" : ""}>
+                            ${tempCompleted[i] ? "已完成" : "完成"}
+                        </button>
+                        ${tempCompleted[i] ? `<button class="cancel" onclick="undoTemp(${i})">取消</button>` : ""}
+                    </div>
+                `;
+                list.appendChild(li);
+            });
+        }
+
+        function updateWorkout() {
+            document.getElementById("workout-count").textContent = workoutCount;
+            const pointsMap = [1,1,2,2,3,3];
+            const nextPts = workoutCount < 6 ? pointsMap[workoutCount] : 4;
+            document.getElementById("workout-next").textContent = nextPts;
+        }
+
+        function updateMaterial() {
+            document.getElementById("material-count").textContent = materialCount;
+            document.getElementById("material-next").textContent = materialCount + 2;
+        }
+
+        function completeTask(index, basePts) {
+            if (completed[index]) return;
+            let actualPts = basePts;
+            if (index === 2) {
+                let hours = new Date().getHours();
+                if (hours >= 23) return;
+                if (hours >= 22) actualPts = 1;
+                else actualPts = 3;
+            }
+            completed[index] = true;
+            points += actualPts;
+            saveData();
+            updateAll();
+            showEffect("+" + actualPts);
+        }
+
+        function undoTask(index) {
+            if (!completed[index]) return;
+            let actualPts = dailyTasks[index].points;
+            if (index === 2) {
+                let hours = new Date().getHours();
+                if (hours >= 22) actualPts = 1; else actualPts = 3;
+            }
+            completed[index] = false;
+            points -= actualPts;
+            saveData();
+            updateAll();
+            showEffect("-" + actualPts);
+        }
+
+        function completeMonthly(index, pts) {
+            if (monthlyCompleted[index]) return;
+            monthlyCompleted[index] = true;
+            points += pts;
+            saveData();
+            updateAll();
+            showEffect("+" + pts);
+        }
+
+        function undoMonthly(index) {
+            if (!monthlyCompleted[index]) return;
+            monthlyCompleted[index] = false;
+            points -= monthlyTasks[index].points;
+            saveData();
+            updateAll();
+        }
+
+        function addWorkout() {
+            if (workoutCount >= 6) {
+                alert("本週健身+核心已達上限 6 次！");
+                return;
+            }
+            const pointsMap = [1,1,2,2,3,3];
+            const pts = pointsMap[workoutCount] || 4;
+            points += pts;
+            workoutCount++;
+            saveData();
+            updateAll();
+            showEffect("+" + pts);
+        }
+
+        function addMaterial() {
+            const pts = materialCount + 2;
+            points += pts;
+            materialCount++;
+            saveData();
+            updateAll();
+            showEffect("+" + pts);
+        }
+
+        function completeTemp(index) {
+            if (tempCompleted[index]) return;
+            tempCompleted[index] = true;
+            points += tempTasks[index].points;
+            saveData();
+            updateAll();
+            showEffect("+" + tempTasks[index].points);
+        }
+
+        function undoTemp(index) {
+            if (!tempCompleted[index]) return;
+            tempCompleted[index] = false;
+            points -= tempTasks[index].points;
+            saveData();
+            updateAll();
+        }
+
+        function addTempTask() {
+            const name = document.getElementById("temp-name").value.trim();
+            const pts = parseInt(document.getElementById("temp-points").value);
+            if (!name || isNaN(pts) || pts <= 0) {
+                alert("請輸入有效任務名稱與分數！");
+                return;
+            }
+            tempTasks.push({name, points: pts});
+            document.getElementById("temp-name").value = "";
+            document.getElementById("temp-points").value = "";
+            saveData();
+            updateAll();
+        }
+
+        function redeem(cost, type) {
+            if (redeemCount[type] >= 2) {
+                alert("今天已達上限！");
+                return;
+            }
+            if (points < cost) {
+                alert("積分不足！");
+                return;
+            }
+            if (confirm(`花 ${cost} 分兌換？`)) {
+                points -= cost;
+                redeemCount[type]++;
+                saveData();
+                updateAll();
+                showEffect("兌換成功！");
+            }
+        }
+
+        function promptBuy() {
+            const money = prompt("想花多少元買東西？（1 分 = 3 元）");
+            if (money && !isNaN(money) && money > 0) {
+                const need = Math.ceil(money / 3);
+                if (points < need) {
+                    alert("積分不足！需要 " + need + " 分");
+                } else if (confirm(`花 ${need} 分（${money} 元）購買？`)) {
+                    points -= need;
+                    saveData();
+                    updateAll();
+                    showEffect("購買成功！");
+                }
+            }
+        }
+
+        function showEffect(text) {
+            const eff = document.createElement("div");
+            eff.className = "effect";
+            eff.textContent = text;
+            document.body.appendChild(eff);
+            setTimeout(() => eff.remove(), 1000);
+        }
+
+        // 每分鐘檢查一次早睡狀態
+        setInterval(updateDailyTasks, 60000);
+
+        loadData();
+    </script>
+</body>
+</html>
