@@ -6,21 +6,27 @@
     <title>任務欄</title>
     <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/BamBooET/My-life-game/main/任務欄照片.png">
     <style>
-        body { font-family: Helvetica, Arial, sans-serif; background: #f0f2f5; margin: 0; padding: 10px; }
+        body { font-family: Helvetica, Arial, sans-serif; background: #f0f2f5; margin: 0; padding: 0; display: flex; }
+        .sidebar { width: 80px; background: #4a6da7; position: fixed; left: 0; top: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; padding-top: 20px; }
+        .sidebar button { background: none; border: none; color: white; font-size: 30px; margin: 20px 0; cursor: pointer; }
+        .sidebar button.active { background: rgba(255,255,255,0.2); border-radius: 10px; padding: 10px; }
+        .main { margin-left: 80px; padding: 10px; width: calc(100% - 80px); }
         h1 { text-align: center; color: #333; }
-        .section { background: white; border-radius: 12px; padding: 15px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .section { background: white; border-radius: 12px; padding: 15px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: none; }
+        .section.active { display: block; }
         h2 { color: #4a6da7; border-bottom: 2px solid #4a6da7; padding-bottom: 5px; }
         .task-list { list-style: none; padding: 0; }
         .task { display: flex; justify-content: space-between; align-items: center; padding: 12px; margin: 8px 0; background: #f9f9f9; border-radius: 8px; }
         .task button { background: #4CAF50; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-size: 15px; cursor: pointer; margin-left: 5px; }
         .task button.cancel { background: #f44336; }
-        .task button:disabled { background: #a5d6a7; opacity: 0.6; }
+        .task button:disabled { background: #a5d6a7; opacity: 0.6; cursor: not-allowed; }
         .task.completed { opacity: 0.6; order: 2; }
         .task:not(.completed) { order: 1; }
         .task-list { display: flex; flex-direction: column; }
         .points { font-size: 28px; font-weight: bold; text-align: center; color: #4a6da7; margin: 20px 0; }
         .reward button { background: #ff9800; width: 100%; padding: 15px; margin: 10px 0; font-size: 18px; }
-        .effect { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 50px; color: #4CAF50; pointer-events: none; animation: fade 1s; }
+        .reset-button { background: #9e9e9e; }
+        .effect { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 50px; color: #4CAF50; pointer-events: none; animation: fade 1s; z-index: 1000; }
         @keyframes fade { 0% {opacity: 0; transform: translate(-50%, -50%) scale(0);} 50% {opacity: 1; transform: translate(-50%, -50%) scale(1.2);} 100% {opacity: 0; transform: translate(-50%, -50%) scale(1);} }
         #temp-input { margin: 15px 0; }
         #temp-input input { padding: 10px; width: 60%; margin-right: 5px; }
@@ -28,67 +34,76 @@
     </style>
 </head>
 <body>
-    <h1>任務欄</h1>
-    <div class="points">目前積分: <span id="points">0</span></div>
-
-    <div class="section">
-        <h2>每日任務</h2>
-        <ul class="task-list" id="daily-tasks"></ul>
+    <div class="sidebar">
+        <button id="tasks-btn" class="active" title="任務">📋</button>
+        <button id="shop-btn" title="商店">🛒</button>
+        <button id="history-btn" title="過往查詢">📅</button>
     </div>
 
-    <div class="section">
-        <h2>無上限計數任務</h2>
-        <div class="task">
-            <span>上班（本日 <span id="work-hours">0</span> 小時） +1 分/小時</span>
-            <div>
-                <button onclick="addWork()">+1 小時</button>
-                <button class="cancel" onclick="undoWork()" disabled>-1 小時</button>
+    <div class="main">
+        <h1>任務欄</h1>
+        <div class="points">目前積分: <span id="points">0</span></div>
+
+        <div class="section active" id="tasks-section">
+            <h2>每日任務</h2>
+            <ul class="task-list" id="daily-tasks"></ul>
+
+            <h2>無上限計數任務</h2>
+            <div class="task">
+                <span>上班（本日 <span id="work-hours">0</span> 小時） +1 分/小時</span>
+                <div>
+                    <button onclick="addWork()">+1 小時</button>
+                    <button class="cancel" onclick="undoWork()" disabled>-1 小時</button>
+                </div>
             </div>
-        </div>
-        <div class="task">
-            <span>學習（本日 <span id="study-hours">0</span> 小時） +2 分/小時</span>
-            <div>
-                <button onclick="addStudy()">+1 小時</button>
-                <button class="cancel" onclick="undoStudy()" disabled>-1 小時</button>
+            <div class="task">
+                <span>學習（本日 <span id="study-hours">0</span> 小時） +2 分/小時</span>
+                <div>
+                    <button onclick="addStudy()">+1 小時</button>
+                    <button class="cancel" onclick="undoStudy()" disabled>-1 小時</button>
+                </div>
             </div>
-        </div>
-    </div>
 
-    <div class="section">
-        <h2>每週連擊任務</h2>
-        <div class="task">
-            <span>健身／核心訓練（本週 <span id="workout-count">0</span>/6）－ 下次 +<span id="workout-next">1</span> 分</span>
-            <div>
-                <button onclick="addWorkout()">+1 次</button>
-                <button class="cancel" onclick="undoWorkout()" disabled>-1 次</button>
+            <h2>每週連擊任務</h2>
+            <div class="task">
+                <span>健身／核心訓練（本週 <span id="workout-count">0</span>/6）－ 下次 +<span id="workout-next">1</span> 分</span>
+                <div>
+                    <button onclick="addWorkout()">+1 次</button>
+                    <button class="cancel" onclick="undoWorkout()" disabled>-1 次</button>
+                </div>
             </div>
-        </div>
-        <div class="task">
-            <span>做教材（本週 <span id="material-count">0</span> 個）－ 下次 +<span id="material-next">2</span> 分</span>
-            <button onclick="addMaterial()">+1 個教材</button>
-        </div>
-    </div>
+            <div class="task">
+                <span>做教材（本週 <span id="material-count">0</span> 個）－ 下次 +<span id="material-next">2</span> 分</span>
+                <div>
+                    <button onclick="addMaterial()">+1 個</button>
+                    <button class="cancel" onclick="undoMaterial()" disabled>-1 個</button>
+                </div>
+            </div>
 
-    <div class="section">
-        <h2>每月／每兩個月任務</h2>
-        <ul class="task-list" id="monthly-tasks"></ul>
-    </div>
+            <h2>每月／每兩個月任務</h2>
+            <ul class="task-list" id="monthly-tasks"></ul>
 
-    <div class="section">
-        <h2>臨時任務</h2>
-        <div id="temp-input">
-            <input type="text" id="temp-name" placeholder="任務名稱">
-            <input type="number" id="temp-points" placeholder="分數" min="1">
-            <button onclick="addTempTask()">新增臨時任務</button>
+            <h2>臨時任務</h2>
+            <div id="temp-input">
+                <input type="text" id="temp-name" placeholder="任務名稱">
+                <input type="number" id="temp-points" placeholder="分數" min="1">
+                <button onclick="addTempTask()">新增並完成</button>
+            </div>
+            <ul class="task-list" id="temp-tasks"></ul>
         </div>
-        <ul class="task-list" id="temp-tasks"></ul>
-    </div>
 
-    <div class="section">
-        <h2>獎勵兌換</h2>
-        <button class="reward" onclick="redeem(3, 'phone')">玩手機 15 分鐘（3 分） - 每日上限 2 次</button>
-        <button class="reward" onclick="redeem(6, 'game')">玩電動 30 分鐘（6 分） - 每日上限 2 次</button>
-        <button class="reward" onclick="promptBuy()">買非生活必要東西（1 分 = 3 元）</button>
+        <div class="section" id="shop-section">
+            <h2>獎勵兌換</h2>
+            <button class="reward" onclick="redeem(3, 'phone')">玩手機 15 分鐘（3 分） - 每日上限 2 次</button>
+            <button class="reward" onclick="redeem(6, 'game')">玩電動 30 分鐘（6 分） - 每日上限 2 次</button>
+            <button class="reward" onclick="promptBuy()">買非生活必要東西（1 分 = 3 元）</button>
+            <button class="reward reset-button" onclick="resetPoints()">手動清零積分（慎用！）</button>
+        </div>
+
+        <div class="section" id="history-section">
+            <h2>過往查詢</h2>
+            <p>即將實作：可點選日期查看當天完成任務與積分紀錄</p>
+        </div>
     </div>
 
     <script>
@@ -123,7 +138,7 @@
 
         const today = new Date();
         const currentDay = today.getDate();
-        const currentMonth = today.getMonth() + 1; // 1-12
+        const currentMonth = today.getMonth() + 1;
         const currentYear = today.getFullYear();
         const thisMonthKey = currentYear + "-" + currentMonth;
         const weekStart = getWeekStart(today);
@@ -138,13 +153,9 @@
         function loadData() {
             const data = JSON.parse(localStorage.getItem("lifeGameData") || "{}");
 
-            // 檢查是否換月或換雙月
             const lastMonthKey = data.month;
             if (lastMonthKey !== thisMonthKey) {
-                // 每月任務重置
-                monthlyCompleted[0] = false;
-                monthlyCompleted[1] = false;
-                // 雙月任務只在單數月1號重置
+                monthlyCompleted = {0: false, 1: false, 2: monthlyCompleted[2] || false};
                 if (currentDay === 1 && currentMonth % 2 === 1) {
                     monthlyCompleted[2] = false;
                 }
@@ -215,7 +226,7 @@
                 let disabled = false;
                 let hours = today.getHours();
 
-                if (i === 2) { // 早睡
+                if (i === 2) {
                     if (hours >= 23) {
                         disabled = true;
                         displayName = "早睡（已超過23:00，失效）";
@@ -289,11 +300,12 @@
             document.getElementById("workout-next").textContent = workoutCount < 6 ? workoutPoints[workoutCount] : 4;
             document.getElementById("material-next").textContent = materialCount + 2;
 
-            // 取消按鈕狀態
-            document.querySelectorAll('button.cancel').forEach(btn => btn.disabled = true);
+            // 更新取消按鈕狀態
+            document.querySelectorAll('.cancel').forEach(btn => btn.disabled = true);
             if (workHours > 0) document.querySelector('button[onclick="undoWork()"]').disabled = false;
             if (studyHours > 0) document.querySelector('button[onclick="undoStudy()"]').disabled = false;
             if (workoutCount > 0) document.querySelector('button[onclick="undoWorkout()"]').disabled = false;
+            if (materialCount > 0) document.querySelector('button[onclick="undoMaterial()"]').disabled = false;
         }
 
         function completeTask(index, basePts) {
@@ -377,6 +389,16 @@
             showEffect("+" + pts);
         }
 
+        function undoMaterial() {
+            if (materialCount <= 0) return;
+            const pts = materialCount + 1; // 上一次加的分數 = 當前count + 1
+            points -= pts;
+            materialCount--;
+            saveData();
+            updateAll();
+            showEffect("-" + pts);
+        }
+
         function addWork() {
             points += 1;
             workHours++;
@@ -436,11 +458,14 @@
                 alert("請輸入有效任務名稱與分數！");
                 return;
             }
-            tempTasks.push({name, points: pts});
+            if (confirm(`確認新增並立即完成任務「${name}」獲得 ${pts} 分？`)) {
+                points += pts;
+                showEffect("+" + pts);
+                saveData();
+                updateAll();
+            }
             document.getElementById("temp-name").value = "";
             document.getElementById("temp-points").value = "";
-            saveData();
-            updateAll();
         }
 
         function redeem(cost, type) {
@@ -476,12 +501,33 @@
             }
         }
 
+        function resetPoints() {
+            if (confirm("確定要清零所有積分嗎？這無法復原！")) {
+                points = 0;
+                saveData();
+                updateAll();
+                showEffect("積分已清零");
+            }
+        }
+
         function showEffect(text) {
             const eff = document.createElement("div");
             eff.className = "effect";
             eff.textContent = text;
             document.body.appendChild(eff);
             setTimeout(() => eff.remove(), 1000);
+        }
+
+        // 側邊欄切換
+        document.getElementById("tasks-btn").onclick = () => switchSection("tasks-section", "tasks-btn");
+        document.getElementById("shop-btn").onclick = () => switchSection("shop-section", "shop-btn");
+        document.getElementById("history-btn").onclick = () => switchSection("history-section", "history-btn");
+
+        function switchSection(sectionId, btnId) {
+            document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
+            document.querySelectorAll(".sidebar button").forEach(b => b.classList.remove("active"));
+            document.getElementById(sectionId).classList.add("active");
+            document.getElementById(btnId).classList.add("active");
         }
 
         setInterval(updateDailyTasks, 60000);
