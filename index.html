@@ -42,14 +42,14 @@
             <span>上班（本日 <span id="work-hours">0</span> 小時） +1 分/小時</span>
             <div>
                 <button onclick="addWork()">+1 小時</button>
-                <button class="cancel" onclick="undoWork()">-1 小時</button>
+                <button class="cancel" onclick="undoWork()" disabled>-1 小時</button>
             </div>
         </div>
         <div class="task">
             <span>學習（本日 <span id="study-hours">0</span> 小時） +2 分/小時</span>
             <div>
                 <button onclick="addStudy()">+1 小時</button>
-                <button class="cancel" onclick="undoStudy()">-1 小時</button>
+                <button class="cancel" onclick="undoStudy()" disabled>-1 小時</button>
             </div>
         </div>
     </div>
@@ -60,7 +60,7 @@
             <span>健身／核心訓練（本週 <span id="workout-count">0</span>/6）－ 下次 +<span id="workout-next">1</span> 分</span>
             <div>
                 <button onclick="addWorkout()">+1 次</button>
-                <button class="cancel" onclick="undoWorkout()">-1 次</button>
+                <button class="cancel" onclick="undoWorkout()" disabled>-1 次</button>
             </div>
         </div>
         <div class="task">
@@ -92,18 +92,20 @@
     </div>
 
     <script>
+        // 每日固定任務
         const dailyTasks = [
             {name: "鏟貓砂、放飼料", points: 1},
             {name: "小咪刷牙/小咪梳毛（交替）", points: 1},
-            {name: "早睡", points: 3},
+            {name: "早睡", points: 3}, // index 2，將特別處理
             {name: "吃夠營養", points: 2},
             {name: "喝水 3500ml", points: 2},
             {name: "睡前伸展按摩", points: 1},
             {name: "陪日出玩", points: 1},
             {name: "記帳", points: 1},
-            {name: "換水（每兩天一次）", points: 1}, // 手動點擊，隔天重置
+            {name: "換水（每兩天一次）", points: 1}, // index 8，手動點擊
         ];
 
+        // 每月任務
         const monthlyTasks = [
             {name: "看一本書", points: 50},
             {name: "換洗床單棉被", points: 5},
@@ -111,16 +113,15 @@
         ];
 
         let points = 0;
-        let completed = {};
-        let monthlyCompleted = {};
-        let tempTasks = [];
-        let tempCompleted = {};
+        let completed = {};           // 每日
+        let monthlyCompleted = {};    // 每月
+        let tempTasks = [];           // 臨時任務 {name, points}
+        let tempCompleted = {};       // 臨時完成狀態
         let redeemCount = {phone: 0, game: 0};
-        let workoutCount = 0;
+        let workoutCount = 0;         // 健身+核心互通
         let materialCount = 0;
         let workHours = 0;
         let studyHours = 0;
-        let waterCompleted = false; // 換水狀態
 
         const today = new Date().toDateString();
         const thisMonth = new Date().getMonth() + 1 + "-" + new Date().getFullYear();
@@ -146,21 +147,23 @@
                 materialCount = data.materialCount || 0;
                 workHours = data.workHours || 0;
                 studyHours = data.studyHours || 0;
-                waterCompleted = data.waterCompleted || false;
             } else if (data.weekStart !== weekStart) {
+                // 新週，重置連擊
                 workoutCount = 0; materialCount = 0;
                 completed = {}; redeemCount = {phone: 0, game: 0};
-                workHours = 0; studyHours = 0; waterCompleted = false;
+                workHours = 0; studyHours = 0;
             } else if (data.month !== thisMonth) {
+                // 新月，重置每月
                 monthlyCompleted = {};
                 completed = {}; redeemCount = {phone: 0, game: 0};
-                workHours = 0; studyHours = 0; waterCompleted = false;
+                workHours = 0; studyHours = 0;
             } else {
+                // 新一天，只重置每日
                 completed = {}; redeemCount = {phone: 0, game: 0};
-                workHours = data.workHours || 0;
-                studyHours = data.studyHours || 0;
-                waterCompleted = false; // 換水每天可重複點，但隔天重置
+                workHours = 0; studyHours = 0;
                 points = data.points || 0;
+                workoutCount = data.workoutCount || 0;
+                materialCount = data.materialCount || 0;
             }
             updateAll();
         }
@@ -179,8 +182,7 @@
                 workoutCount,
                 materialCount,
                 workHours,
-                studyHours,
-                waterCompleted
+                studyHours
             }));
         }
 
@@ -189,11 +191,9 @@
             updateDailyTasks();
             updateMonthlyTasks();
             updateTempTasks();
-            updateCounters();
-        }
-
-        function updatePoints() {
-            document.getElementById("points").textContent = points;
+            updateWorkout();
+            updateMaterial();
+            updateWorkStudy();
         }
 
         function updateDailyTasks() {
@@ -201,7 +201,7 @@
             list.innerHTML = "";
             dailyTasks.forEach((task, i) => {
                 const li = document.createElement("li");
-                li.className = "task" + ((i === 8 ? waterCompleted : completed[i]) ? " completed" : "");
+                li.className = "task" + (completed[i] ? " completed" : "");
 
                 let displayName = task.name;
                 let displayPoints = task.points;
@@ -217,60 +217,162 @@
                     } else if (hours >= 22) {
                         displayName = "早睡（23:00 前）";
                         displayPoints = 1;
+                    } else {
+                        displayName = "早睡（22:00 前）";
+                        displayPoints = 3;
                     }
                 }
 
                 li.innerHTML = `
                     <span>${displayName} (+${displayPoints} 分)</span>
                     <div>
-                        <button onclick="completeTask(${i})" ${(i === 8 ? waterCompleted : completed[i]) || disabled ? "disabled" : ""}>
-                            已完成
+                        <button onclick="completeTask(${i}, ${displayPoints})" ${completed[i] || disabled ? "disabled" : ""}>
+                            ${completed[i] ? "已完成" : "完成"}
                         </button>
-                        ${(i === 8 ? waterCompleted : completed[i]) ? `<button class="cancel" onclick="undoTask(${i})">取消</button>` : ""}
+                        ${completed[i] ? `<button class="cancel" onclick="undoTask(${i}, ${displayPoints})">取消</button>` : ""}
                     </div>
                 `;
                 list.appendChild(li);
             });
         }
 
-        function completeTask(index) {
-            if (index === 8) { // 換水
-                if (waterCompleted) return;
-                waterCompleted = true;
-            } else {
-                if (completed[index]) return;
-                completed[index] = true;
-            }
-            points += dailyTasks[index].points;
-            saveData();
-            updateAll();
-            showEffect("+" + dailyTasks[index].points);
+        function updateMonthlyTasks() {
+            const list = document.getElementById("monthly-tasks");
+            list.innerHTML = "";
+            monthlyTasks.forEach((task, i) => {
+                const li = document.createElement("li");
+                li.className = "task" + (monthlyCompleted[i] ? " completed" : "");
+                li.innerHTML = `
+                    <span>${task.name} (+${task.points} 分)</span>
+                    <div>
+                        <button onclick="completeMonthly(${i}, ${task.points})" ${monthlyCompleted[i] ? "disabled" : ""}>
+                            ${monthlyCompleted[i] ? "已完成" : "完成"}
+                        </button>
+                        ${monthlyCompleted[i] ? `<button class="cancel" onclick="undoMonthly(${i})">取消</button>` : ""}
+                    </div>
+                `;
+                list.appendChild(li);
+            });
         }
 
-        function undoTask(index) {
-            if (index === 8) {
-                if (!waterCompleted) return;
-                waterCompleted = false;
-            } else {
-                if (!completed[index]) return;
-                completed[index] = false;
-            }
-            points -= dailyTasks[index].points;
-            saveData();
-            updateAll();
+        function updateTempTasks() {
+            const list = document.getElementById("temp-tasks");
+            list.innerHTML = "";
+            tempTasks.forEach((task, i) => {
+                const li = document.createElement("li");
+                li.className = "task" + (tempCompleted[i] ? " completed" : "");
+                li.innerHTML = `
+                    <span>${task.name} (+${task.points} 分)</span>
+                    <div>
+                        <button onclick="completeTemp(${i})" ${tempCompleted[i] ? "disabled" : ""}>
+                            ${tempCompleted[i] ? "已完成" : "完成"}
+                        </button>
+                        ${tempCompleted[i] ? `<button class="cancel" onclick="undoTemp(${i})">取消</button>` : ""}
+                    </div>
+                `;
+                list.appendChild(li);
+            });
         }
 
-        // 其他 update 與 add/undo 函數保持不變，只補上新計數器
-        function updateCounters() {
-            document.getElementById("work-hours").textContent = workHours;
-            document.getElementById("study-hours").textContent = studyHours;
+        function updateWorkout() {
             document.getElementById("workout-count").textContent = workoutCount;
+            const pointsMap = [1,1,2,2,3,3];
+            document.getElementById("workout-next").textContent = workoutCount < 6 ? pointsMap[workoutCount] : 4;
+            document.querySelector('button[onclick="undoWorkout()"]').disabled = workoutCount === 0;
+        }
+
+        function updateMaterial() {
             document.getElementById("material-count").textContent = materialCount;
-
-            const workoutPoints = [1,1,2,2,3,3];
-            document.getElementById("workout-next").textContent = workoutCount < 6 ? workoutPoints[workoutCount] : 4;
-
             document.getElementById("material-next").textContent = materialCount + 2;
+        }
+
+        function updateWorkStudy() {
+            document.getElementById("work-hours").textContent = workHours;
+            document.querySelector('button[onclick="undoWork()"]').disabled = workHours === 0;
+            document.getElementById("study-hours").textContent = studyHours;
+            document.querySelector('button[onclick="undoStudy()"]').disabled = studyHours === 0;
+        }
+
+        function completeTask(index, basePts) {
+            if (completed[index]) return;
+            let actualPts = basePts;
+            if (index === 2) { // 早睡
+                let hours = new Date().getHours();
+                if (hours >= 23) return;
+                if (hours >= 22) actualPts = 1;
+                else actualPts = 3;
+            }
+            completed[index] = true;
+            points += actualPts;
+            saveData();
+            updateAll();
+            showEffect("+" + actualPts);
+        }
+
+        function undoTask(index, basePts) {
+            if (!completed[index]) return;
+            let actualPts = basePts;
+            if (index === 2) {
+                let hours = new Date().getHours();
+                if (hours >= 22) actualPts = 1; else actualPts = 3;
+            }
+            completed[index] = false;
+            points -= actualPts;
+            saveData();
+            updateAll();
+            showEffect("-" + actualPts);
+        }
+
+        function completeMonthly(index, pts) {
+            if (monthlyCompleted[index]) return;
+            monthlyCompleted[index] = true;
+            points += pts;
+            saveData();
+            updateAll();
+            showEffect("+" + pts);
+        }
+
+        function undoMonthly(index) {
+            if (!monthlyCompleted[index]) return;
+            monthlyCompleted[index] = false;
+            points -= monthlyTasks[index].points;
+            saveData();
+            updateAll();
+            showEffect("-" + monthlyTasks[index].points);
+        }
+
+        function addWorkout() {
+            if (workoutCount >= 6) {
+                alert("本週健身+核心已達上限 6 次！");
+                return;
+            }
+            const pointsMap = [1,1,2,2,3,3];
+            const pts = pointsMap[workoutCount] || 4;
+            points += pts;
+            workoutCount++;
+            saveData();
+            updateAll();
+            showEffect("+" + pts);
+        }
+
+        function undoWorkout() {
+            if (workoutCount <= 0) return;
+            const pointsMap = [1,1,2,2,3,3];
+            const pts = pointsMap[workoutCount - 1] || 4;
+            points -= pts;
+            workoutCount--;
+            saveData();
+            updateAll();
+            showEffect("-" + pts);
+        }
+
+        function addMaterial() {
+            const pts = materialCount + 2;
+            points += pts;
+            materialCount++;
+            saveData();
+            updateAll();
+            showEffect("+" + pts);
         }
 
         function addWork() {
@@ -307,34 +409,78 @@
             showEffect("-2");
         }
 
-        function addWorkout() {
-            if (workoutCount >= 6) {
-                alert("本週已達上限 6 次！");
+        function completeTemp(index) {
+            if (tempCompleted[index]) return;
+            tempCompleted[index] = true;
+            points += tempTasks[index].points;
+            saveData();
+            updateAll();
+            showEffect("+" + tempTasks[index].points);
+        }
+
+        function undoTemp(index) {
+            if (!tempCompleted[index]) return;
+            tempCompleted[index] = false;
+            points -= tempTasks[index].points;
+            saveData();
+            updateAll();
+            showEffect("-" + tempTasks[index].points);
+        }
+
+        function addTempTask() {
+            const name = document.getElementById("temp-name").value.trim();
+            const pts = parseInt(document.getElementById("temp-points").value);
+            if (!name || isNaN(pts) || pts <= 0) {
+                alert("請輸入有效任務名稱與分數！");
                 return;
             }
-            const ptsMap = [1,1,2,2,3,3];
-            const pts = ptsMap[workoutCount] || 4;
-            points += pts;
-            workoutCount++;
+            tempTasks.push({name, points: pts});
+            document.getElementById("temp-name").value = "";
+            document.getElementById("temp-points").value = "";
             saveData();
             updateAll();
-            showEffect("+" + pts);
         }
 
-        function undoWorkout() {
-            if (workoutCount <= 0) return;
-            const ptsMap = [1,1,2,2,3,3];
-            const pts = ptsMap[workoutCount - 1] || 4;
-            points -= pts;
-            workoutCount--;
-            saveData();
-            updateAll();
-            showEffect("-" + pts);
+        function redeem(cost, type) {
+            if (redeemCount[type] >= 2) {
+                alert("今天已達上限！");
+                return;
+            }
+            if (points < cost) {
+                alert("積分不足！");
+                return;
+            }
+            if (confirm(`花 ${cost} 分兌換？`)) {
+                points -= cost;
+                redeemCount[type]++;
+                saveData();
+                updateAll();
+                showEffect("兌換成功！");
+            }
         }
 
-        // 其餘函數（monthly、temp、redeem、showEffect 等）保持原樣
+        function promptBuy() {
+            const money = prompt("想花多少元買東西？（1 分 = 3 元）");
+            if (money && !isNaN(money) && money > 0) {
+                const need = Math.ceil(money / 3);
+                if (points < need) {
+                    alert("積分不足！需要 " + need + " 分");
+                } else if (confirm(`花 ${need} 分（${money} 元）購買？`)) {
+                    points -= need;
+                    saveData();
+                    updateAll();
+                    showEffect("購買成功！");
+                }
+            }
+        }
 
-        // ... (其餘程式碼與 v4 相同，包含 monthly update、temp、redeem、promptBuy、showEffect、setInterval)
+        function showEffect(text) {
+            const eff = document.createElement("div");
+            eff.className = "effect";
+            eff.textContent = text;
+            document.body.appendChild(eff);
+            setTimeout(() => eff.remove(), 1000);
+        }
 
         setInterval(updateDailyTasks, 60000);
         loadData();
