@@ -27,7 +27,6 @@
         .task.completed { opacity: 0.6; order: 2; }
         .task:not(.completed) { order: 1; }
         .task-list { display: flex; flex-direction: column; }
-        .points { font-size: 28px; font-weight: bold; text-align: center; color: #4a6da7; margin: 20px 0; }
         .reward button { background: #ff9800; width: 100%; padding: 15px; margin: 10px 0; font-size: 18px; }
         .reset-button { background: #9e9e9e; }
         .effect { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 50px; color: #4CAF50; pointer-events: none; animation: fade 1s; z-index: 1000; }
@@ -35,6 +34,16 @@
         #temp-input { margin: 15px 0; display: flex; flex-wrap: wrap; gap: 10px; }
         #temp-input input { padding: 10px; flex: 1 1 150px; min-width: 120px; }
         #temp-input button { padding: 10px 20px; }
+
+        /* 積分固定右下角 */
+        .points-fixed { position: fixed; right: 20px; bottom: 20px; background: rgba(74, 109, 167, 0.9); color: white; padding: 15px 25px; border-radius: 50px; font-size: 24px; font-weight: bold; box-shadow: 0 4px 15px rgba(0,0,0,0.3); z-index: 999; }
+
+        /* 角色形象固定左下角 */
+        .character { position: fixed; left: 20px; bottom: 20px; width: 150px; height: 150px; object-fit: contain; z-index: 999; transition: opacity 0.5s ease; }
+
+        /* 側邊欄按鈕加大 + 間距拉大 */
+        .sidebar button { background: none; border: none; color: white; font-size: 40px; margin: 40px 0; cursor: pointer; }
+        .sidebar button.active { background: rgba(255,255,255,0.2); border-radius: 15px; padding: 15px; }
     </style>
 </head>
 <body>
@@ -48,7 +57,6 @@
 
     <div class="main" id="main">
         <h1>任務欄</h1>
-        <div class="points">目前積分: <span id="points">0</span></div>
 
         <div class="section active" id="tasks-section">
             <h2>每日任務</h2>
@@ -86,6 +94,9 @@
                 </div>
             </div>
 
+            <h2>每週任務</h2>
+            <ul class="task-list" id="weekly-tasks"></ul>
+
             <h2>每月／每兩個月任務</h2>
             <ul class="task-list" id="monthly-tasks"></ul>
 
@@ -112,17 +123,29 @@
         </div>
     </div>
 
+    <!-- 積分固定右下角 -->
+    <div class="points-fixed">積分: <span id="points">0</span></div>
+
+    <!-- 角色形象固定左下角 -->
+    <img id="character-img" class="character" src="https://raw.githubusercontent.com/BamBooET/My-life-game/main/貧窮.jpg" alt="角色形象">
+
     <script>
         const dailyTasks = [
             {name: "鏟貓砂、放飼料", points: 1},
             {name: "小咪刷牙/小咪梳毛（交替）", points: 1},
-            {name: "早睡", points: 3},
             {name: "吃夠營養", points: 2},
             {name: "喝水 3500ml", points: 2},
             {name: "睡前伸展按摩", points: 1},
             {name: "陪日出玩", points: 1},
             {name: "記帳", points: 1},
             {name: "換水（每兩天一次）", points: 1},
+        ];
+
+        const weeklyTasks = [
+            {name: "打掃家裡", points: 2},
+            {name: "安排下週待辦事項", points: 2},
+            {name: "完成本週應辦事項", points: 3},
+            {name: "冥想10分鐘", points: 1},
         ];
 
         const monthlyTasks = [
@@ -133,6 +156,7 @@
 
         let points = 0;
         let completed = {};
+        let weeklyCompleted = {};
         let monthlyCompleted = {};
         let tempTasks = [];
         let tempCompleted = {};
@@ -141,6 +165,7 @@
         let materialCount = 0;
         let workHours = 0;
         let studyHours = 0;
+        let sleepPts = 0;
 
         const today = new Date();
         const currentDay = today.getDate();
@@ -170,6 +195,7 @@
             if (data.weekStart === weekStart && data.date === today.toDateString() && data.month === thisMonthKey) {
                 points = data.points || 0;
                 completed = data.completed || {};
+                weeklyCompleted = data.weeklyCompleted || {};
                 monthlyCompleted = data.monthlyCompleted || monthlyCompleted;
                 tempTasks = data.tempTasks || [];
                 tempCompleted = data.tempCompleted || {};
@@ -178,13 +204,17 @@
                 materialCount = data.materialCount || 0;
                 workHours = data.workHours || 0;
                 studyHours = data.studyHours || 0;
+                sleepPts = data.sleepPts || 0;
             } else if (data.weekStart !== weekStart) {
                 workoutCount = 0; materialCount = 0;
+                weeklyCompleted = {};
                 completed = {}; redeemCount = {phone: 0, game: 0};
                 workHours = 0; studyHours = 0;
+                sleepPts = 0;
             } else {
                 completed = {}; redeemCount = {phone: 0, game: 0};
                 workHours = 0; studyHours = 0;
+                sleepPts = 0;
                 points = data.points || 0;
             }
             updateAll();
@@ -197,6 +227,7 @@
                 month: thisMonthKey,
                 points,
                 completed,
+                weeklyCompleted,
                 monthlyCompleted,
                 tempTasks,
                 tempCompleted,
@@ -204,20 +235,35 @@
                 workoutCount,
                 materialCount,
                 workHours,
-                studyHours
+                studyHours,
+                sleepPts
             }));
         }
 
         function updateAll() {
             updatePoints();
             updateDailyTasks();
+            updateWeeklyTasks();
             updateMonthlyTasks();
             updateTempTasks();
             updateCounters();
+            updateSleepButton();
+            updateCharacter();
         }
 
         function updatePoints() {
             document.getElementById("points").textContent = points;
+        }
+
+        function updateCharacter() {
+            const img = document.getElementById("character-img");
+            if (points <= 150) {
+                img.src = "https://raw.githubusercontent.com/BamBooET/My-life-game/main/貧窮.jpg";
+            } else if (points <= 500) {
+                img.src = "https://raw.githubusercontent.com/BamBooET/My-life-game/main/普通.jpg";
+            } else {
+                img.src = "https://raw.githubusercontent.com/BamBooET/My-life-game/main/富豪.jpg";
+            }
         }
 
         function updateDailyTasks() {
@@ -227,31 +273,33 @@
                 const li = document.createElement("li");
                 li.className = "task" + (completed[i] ? " completed" : "");
 
-                let displayName = task.name;
-                let displayPoints = task.points;
-                let disabled = false;
-                let hours = today.getHours();
-
-                if (i === 2) {
-                    if (hours >= 23) {
-                        disabled = true;
-                        displayName = "早睡（已超過23:00，失效）";
-                        displayPoints = 0;
-                    } else if (hours >= 22) {
-                        displayName = "早睡（23:00 前）";
-                        displayPoints = 1;
-                    } else {
-                        displayPoints = 3;
-                    }
-                }
-
                 li.innerHTML = `
-                    <span>${displayName} (+${displayPoints} 分)</span>
+                    <span>${task.name} (+${task.points} 分)</span>
                     <div class="buttons">
-                        <button onclick="completeTask(${i}, ${displayPoints})" ${completed[i] || disabled ? "disabled" : ""}>
+                        <button onclick="completeDaily(${i}, ${task.points})" ${completed[i] ? "disabled" : ""}>
                             ${completed[i] ? "已完成" : "完成"}
                         </button>
-                        ${completed[i] ? `<button class="cancel" onclick="undoTask(${i}, ${displayPoints})">取消</button>` : ""}
+                        ${completed[i] ? `<button class="cancel" onclick="undoDaily(${i}, ${task.points})">取消</button>` : ""}
+                    </div>
+                `;
+                list.appendChild(li);
+            });
+        }
+
+        function updateWeeklyTasks() {
+            const list = document.getElementById("weekly-tasks");
+            list.innerHTML = "";
+            weeklyTasks.forEach((task, i) => {
+                const li = document.createElement("li");
+                li.className = "task" + (weeklyCompleted[i] ? " completed" : "");
+
+                li.innerHTML = `
+                    <span>${task.name} (+${task.points} 分)</span>
+                    <div class="buttons">
+                        <button onclick="completeWeekly(${i}, ${task.points})" ${weeklyCompleted[i] ? "disabled" : ""}>
+                            ${weeklyCompleted[i] ? "已完成" : "完成"}
+                        </button>
+                        ${weeklyCompleted[i] ? `<button class="cancel" onclick="undoWeekly(${i})">取消</button>` : ""}
                     </div>
                 `;
                 list.appendChild(li);
@@ -306,40 +354,90 @@
             document.getElementById("workout-next").textContent = workoutCount < 6 ? workoutPoints[workoutCount] : 4;
             document.getElementById("material-next").textContent = materialCount + 2;
 
-            // 只控制計數型任務的 -1 按鈕
             document.querySelector('button[onclick="undoWork()"]').disabled = workHours === 0;
             document.querySelector('button[onclick="undoStudy()"]').disabled = studyHours === 0;
             document.querySelector('button[onclick="undoWorkout()"]').disabled = workoutCount === 0;
             document.querySelector('button[onclick="undoMaterial()"]').disabled = materialCount === 0;
         }
 
-        function completeTask(index, basePts) {
-            if (completed[index]) return;
-            let actualPts = basePts;
-            if (index === 2) {
-                let hours = today.getHours();
-                if (hours >= 23) return;
-                if (hours >= 22) actualPts = 1;
+        function updateSleepButton() {
+            const sleepBtn = document.getElementById("sleep-btn");
+            const cancelBtn = document.getElementById("sleep-cancel-btn");
+            if (sleepPts > 0) {
+                sleepBtn.disabled = true;
+                cancelBtn.style.display = "inline-block";
+            } else {
+                sleepBtn.disabled = false;
+                cancelBtn.style.display = "none";
             }
-            completed[index] = true;
-            points += actualPts;
-            saveData();
-            updateAll();
-            showEffect("+" + actualPts);
         }
 
-        function undoTask(index, basePts) {
-            if (!completed[index]) return;
-            let actualPts = basePts;
-            if (index === 2) {
-                let hours = today.getHours();
-                if (hours >= 22) actualPts = 1;
+        function completeSleep() {
+            let hours = today.getHours();
+            let minutes = today.getMinutes();
+            let currentTime = hours * 60 + minutes;
+            let pts = 0;
+            if (currentTime <= 1320) { // 22:00
+                pts = 3;
+            } else if (currentTime <= 1380) { // 23:00
+                pts = 1;
+            } else {
+                pts = 0;
             }
-            completed[index] = false;
-            points -= actualPts;
+            if (pts === 0) {
+                alert("已經超過23:00，睡覺不加分喔～");
+                return;
+            }
+            sleepPts = pts;
+            points += pts;
             saveData();
             updateAll();
-            showEffect("-" + actualPts);
+            showEffect("+" + pts);
+        }
+
+        function undoSleep() {
+            if (sleepPts === 0) return;
+            points -= sleepPts;
+            sleepPts = 0;
+            saveData();
+            updateAll();
+            showEffect("-" + sleepPts);
+        }
+
+        function completeDaily(index, pts) {
+            if (completed[index]) return;
+            completed[index] = true;
+            points += pts;
+            saveData();
+            updateAll();
+            showEffect("+" + pts);
+        }
+
+        function undoDaily(index, pts) {
+            if (!completed[index]) return;
+            completed[index] = false;
+            points -= pts;
+            saveData();
+            updateAll();
+            showEffect("-" + pts);
+        }
+
+        function completeWeekly(index, pts) {
+            if (weeklyCompleted[index]) return;
+            weeklyCompleted[index] = true;
+            points += pts;
+            saveData();
+            updateAll();
+            showEffect("+" + pts);
+        }
+
+        function undoWeekly(index) {
+            if (!weeklyCompleted[index]) return;
+            weeklyCompleted[index] = false;
+            points -= weeklyTasks[index].points;
+            saveData();
+            updateAll();
+            showEffect("-" + weeklyTasks[index].points);
         }
 
         function completeMonthly(index, pts) {
@@ -528,7 +626,11 @@
             document.getElementById(btnId).classList.add("active");
         }
 
-        setInterval(updateDailyTasks, 60000);
+        setInterval(() => {
+            updateDailyTasks();
+            updateSleepButton();
+        }, 60000);
+
         loadData();
     </script>
 </body>
