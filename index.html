@@ -39,10 +39,10 @@
         .sidebar button { background: none; border: none; color: white; font-size: 40px; margin: 40px 0; cursor: pointer; }
         .sidebar button.active { background: rgba(255,255,255,0.2); border-radius: 15px; padding: 15px; }
 
-        /* 右下角容器：角色 + 積分一起 */
-        .bottom-right-container { position: fixed; right: 20px; bottom: 20px; display: flex; flex-direction: column; align-items: center; gap: 15px; z-index: 999; }
-        .character { width: 120px; height: 120px; object-fit: contain; transition: opacity 0.5s ease; }
-        .points-fixed { background: rgba(74, 109, 167, 0.9); color: white; padding: 12px 25px; border-radius: 30px; font-size: 22px; font-weight: bold; box-shadow: 0 4px 15px rgba(0,0,0,0.3); cursor: pointer; }
+        /* 左下角容器：角色 + 積分一起 */
+.bottom-left-container { position: fixed; left: 20px; bottom: 20px; display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 999; }
+.character { width: 120px; height: 120px; object-fit: contain; transition: opacity 0.5s ease; }
+.points-fixed { background: rgba(74, 109, 167, 0.9); color: white; padding: 12px 25px; border-radius: 30px; font-size: 22px; font-weight: bold; box-shadow: 0 4px 15px rgba(0,0,0,0.3); cursor: pointer; }
     </style>
 </head>
 <body>
@@ -122,11 +122,11 @@
         </div>
     </div>
 
-    <!-- 右下角容器：角色 + 積分一起 -->
-    <div class="bottom-right-container">
-        <img id="character-img" class="character" src="https://raw.githubusercontent.com/BamBooET/My-life-game/main/貧窮.png" alt="角色形象">
-        <div class="points-fixed" id="points-btn">積分: <span id="points">0</span></div>
-    </div>
+    <!-- 左下角容器：角色 + 積分一起 -->
+<div class="bottom-left-container">
+    <img id="character-img" class="character" src="https://raw.githubusercontent.com/BamBooET/My-life-game/main/貧窮.png" alt="角色形象">
+    <div class="points-fixed" id="points-btn">積分: <span id="points">0</span></div>
+</div>
 
     <script>
         const dailyTasks = [
