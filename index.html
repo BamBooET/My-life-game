@@ -35,15 +35,14 @@
         #temp-input input { padding: 10px; flex: 1 1 150px; min-width: 120px; }
         #temp-input button { padding: 10px 20px; }
 
-        /* 積分固定右下角 */
-        .points-fixed { position: fixed; right: 20px; bottom: 20px; background: rgba(74, 109, 167, 0.9); color: white; padding: 15px 25px; border-radius: 50px; font-size: 24px; font-weight: bold; box-shadow: 0 4px 15px rgba(0,0,0,0.3); z-index: 999; }
-
-        /* 角色形象固定左下角 */
-        .character { position: fixed; left: 20px; bottom: 20px; width: 150px; height: 150px; object-fit: contain; z-index: 999; transition: opacity 0.5s ease; }
-
         /* 側邊欄按鈕加大 + 間距拉大 */
         .sidebar button { background: none; border: none; color: white; font-size: 40px; margin: 40px 0; cursor: pointer; }
         .sidebar button.active { background: rgba(255,255,255,0.2); border-radius: 15px; padding: 15px; }
+
+        /* 右下角容器：角色 + 積分一起 */
+        .bottom-right-container { position: fixed; right: 20px; bottom: 20px; display: flex; flex-direction: column; align-items: center; gap: 15px; z-index: 999; }
+        .character { width: 120px; height: 120px; object-fit: contain; transition: opacity 0.5s ease; }
+        .points-fixed { background: rgba(74, 109, 167, 0.9); color: white; padding: 12px 25px; border-radius: 30px; font-size: 22px; font-weight: bold; box-shadow: 0 4px 15px rgba(0,0,0,0.3); cursor: pointer; }
     </style>
 </head>
 <body>
@@ -123,11 +122,11 @@
         </div>
     </div>
 
-    <!-- 積分固定右下角 -->
-    <div class="points-fixed">積分: <span id="points">0</span></div>
-
-    <!-- 角色形象固定左下角 -->
-    <img id="character-img" class="character" src="https://raw.githubusercontent.com/BamBooET/My-life-game/main/貧窮.jpg" alt="角色形象">
+    <!-- 右下角容器：角色 + 積分一起 -->
+    <div class="bottom-right-container">
+        <img id="character-img" class="character" src="https://raw.githubusercontent.com/BamBooET/My-life-game/main/貧窮.png" alt="角色形象">
+        <div class="points-fixed" id="points-btn">積分: <span id="points">0</span></div>
+    </div>
 
     <script>
         const dailyTasks = [
@@ -257,12 +256,12 @@
 
         function updateCharacter() {
             const img = document.getElementById("character-img");
-            if (points <= 150) {
-                img.src = "https://raw.githubusercontent.com/BamBooET/My-life-game/main/貧窮.jpg";
-            } else if (points <= 500) {
-                img.src = "https://raw.githubusercontent.com/BamBooET/My-life-game/main/普通.jpg";
+            if (points <= 50) {
+                img.src = "https://raw.githubusercontent.com/BamBooET/My-life-game/main/貧窮.png";
+            } else if (points <= 200) {
+                img.src = "https://raw.githubusercontent.com/BamBooET/My-life-game/main/普通.png";
             } else {
-                img.src = "https://raw.githubusercontent.com/BamBooET/My-life-game/main/富豪.jpg";
+                img.src = "https://raw.githubusercontent.com/BamBooET/My-life-game/main/富豪.png";
             }
         }
 
@@ -602,6 +601,11 @@
             document.body.appendChild(eff);
             setTimeout(() => eff.remove(), 1000);
         }
+
+        // 點擊積分跳轉到商店
+        document.getElementById("points-btn").onclick = () => {
+            switchSection("shop-section", "shop-btn");
+        };
 
         // 側邊欄開合
         const toggleBtn = document.getElementById("toggle-btn");
