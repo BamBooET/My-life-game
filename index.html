@@ -34,15 +34,17 @@
         #temp-input { margin: 15px 0; display: flex; flex-wrap: wrap; gap: 10px; }
         #temp-input input { padding: 10px; flex: 1 1 150px; min-width: 120px; }
         #temp-input button { padding: 10px 20px; }
+        .sleep-task { margin: 15px 0; text-align: center; font-size: 18px; }
+        .sleep-task button { font-size: 18px; padding: 12px 30px; }
+
+        /* 左下角容器：角色 + 積分一起 */
+        .bottom-left-container { position: fixed; left: 20px; bottom: 20px; display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 999; }
+        .character { width: 120px; height: 120px; object-fit: contain; transition: opacity 0.5s ease; }
+        .points-fixed { background: rgba(74, 109, 167, 0.9); color: white; padding: 12px 25px; border-radius: 30px; font-size: 22px; font-weight: bold; box-shadow: 0 4px 15px rgba(0,0,0,0.3); cursor: pointer; }
 
         /* 側邊欄按鈕加大 + 間距拉大 */
         .sidebar button { background: none; border: none; color: white; font-size: 40px; margin: 40px 0; cursor: pointer; }
         .sidebar button.active { background: rgba(255,255,255,0.2); border-radius: 15px; padding: 15px; }
-
-        /* 左下角容器：角色 + 積分一起 */
-.bottom-left-container { position: fixed; left: 20px; bottom: 20px; display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 999; }
-.character { width: 120px; height: 120px; object-fit: contain; transition: opacity 0.5s ease; }
-.points-fixed { background: rgba(74, 109, 167, 0.9); color: white; padding: 12px 25px; border-radius: 30px; font-size: 22px; font-weight: bold; box-shadow: 0 4px 15px rgba(0,0,0,0.3); cursor: pointer; }
     </style>
 </head>
 <body>
@@ -58,6 +60,13 @@
         <h1>任務欄</h1>
 
         <div class="section active" id="tasks-section">
+            <!-- 睡覺獨立按鍵 -->
+            <div class="sleep-task">
+                <span id="sleep-status">睡覺（點擊記錄今晚睡眠時間）</span><br>
+                <button id="sleep-btn" onclick="completeSleep()">睡覺</button>
+                <button id="sleep-cancel-btn" class="cancel" onclick="undoSleep()" style="display:none;">取消睡覺</button>
+            </div>
+
             <h2>每日任務</h2>
             <ul class="task-list" id="daily-tasks"></ul>
 
@@ -123,10 +132,10 @@
     </div>
 
     <!-- 左下角容器：角色 + 積分一起 -->
-<div class="bottom-left-container">
-    <img id="character-img" class="character" src="https://raw.githubusercontent.com/BamBooET/My-life-game/main/貧窮.png" alt="角色形象">
-    <div class="points-fixed" id="points-btn">積分: <span id="points">0</span></div>
-</div>
+    <div class="bottom-left-container">
+        <img id="character-img" class="character" src="https://raw.githubusercontent.com/BamBooET/My-life-game/main/貧窮.png" alt="角色形象">
+        <div class="points-fixed" id="points-btn">積分: <span id="points">0</span></div>
+    </div>
 
     <script>
         const dailyTasks = [
@@ -268,6 +277,11 @@
         function updateDailyTasks() {
             const list = document.getElementById("daily-tasks");
             list.innerHTML = "";
+            const now = new Date();
+            const hours = now.getHours();
+            const minutes = now.getMinutes();
+            const isBeforeDeadline = (hours < 21) || (hours === 21 && minutes <= 30);
+
             dailyTasks.forEach((task, i) => {
                 const li = document.createElement("li");
                 li.className = "task" + (completed[i] ? " completed" : "");
@@ -275,12 +289,17 @@
                 li.innerHTML = `
                     <span>${task.name} (+${task.points} 分)</span>
                     <div class="buttons">
-                        <button onclick="completeDaily(${i}, ${task.points})" ${completed[i] ? "disabled" : ""}>
+                        <button onclick="completeTask(${i}, ${task.points})" ${completed[i] || !isBeforeDeadline ? "disabled" : ""}>
                             ${completed[i] ? "已完成" : "完成"}
                         </button>
-                        ${completed[i] ? `<button class="cancel" onclick="undoDaily(${i}, ${task.points})">取消</button>` : ""}
+                        ${completed[i] ? `<button class="cancel" onclick="undoTask(${i}, ${task.points})">取消</button>` : ""}
                     </div>
                 `;
+
+                if (!isBeforeDeadline && !completed[i]) {
+                    li.innerHTML += `<small style="color: #f44336; margin-left: 10px;">（已過 21:30 截止時間）</small>`;
+                }
+
                 list.appendChild(li);
             });
         }
@@ -403,7 +422,7 @@
             showEffect("-" + sleepPts);
         }
 
-        function completeDaily(index, pts) {
+        function completeTask(index, pts) {
             if (completed[index]) return;
             completed[index] = true;
             points += pts;
@@ -412,7 +431,7 @@
             showEffect("+" + pts);
         }
 
-        function undoDaily(index, pts) {
+        function undoTask(index, pts) {
             if (!completed[index]) return;
             completed[index] = false;
             points -= pts;
@@ -630,11 +649,7 @@
             document.getElementById(btnId).classList.add("active");
         }
 
-        setInterval(() => {
-            updateDailyTasks();
-            updateSleepButton();
-        }, 60000);
-
+        setInterval(updateDailyTasks, 60000);
         loadData();
     </script>
 </body>
