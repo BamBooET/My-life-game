@@ -5,9 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>任務欄</title>
     <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/BamBooET/My-life-game/main/任務欄照片.png">
-    <link rel="apple-touch-icon" sizes="180x180" href="https://raw.githubusercontent.com/BamBooET/My-life-game/main/任務欄照片.png">
-    <link rel="apple-touch-icon" sizes="152x152" href="https://raw.githubusercontent.com/BamBooET/My-life-game/main/任務欄照片.png">
-    <link rel="apple-touch-icon" sizes="120x120" href="https://raw.githubusercontent.com/BamBooET/My-life-game/main/任務欄照片.png">
     <style>
         body { font-family: Helvetica, Arial, sans-serif; background: #f0f2f5; margin: 0; padding: 0; display: flex; overflow-x: hidden; }
         .sidebar { width: 80px; background: #4a6da7; position: fixed; left: 0; top: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; padding-top: 80px; transition: transform 0.3s ease; z-index: 1000; }
@@ -177,33 +174,53 @@
         let workHours = 0;
         let studyHours = 0;
         let sleepPts = 0;
+        let lastWeekTotalPoints = 0; // 新增：上週總分
 
         const today = new Date();
         const currentDay = today.getDate();
         const currentMonth = today.getMonth() + 1;
         const currentYear = today.getFullYear();
         const thisMonthKey = currentYear + "-" + currentMonth;
-        const weekStart = getWeekStart(today);
+        const currentWeekStart = getCurrentWeekStart();
 
-        function getWeekStart(date) {
-            const d = new Date(date);
+        function getCurrentWeekStart() {
+            const d = new Date(today);
             const day = d.getDay();
-            const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-            return new Date(d.setDate(diff)).toDateString();
+            const diff = d.getDate() - day + (day === 0 ? -6 : 1); // 星期一
+            d.setDate(diff);
+            return d.toDateString();
         }
 
         function loadData() {
             const data = JSON.parse(localStorage.getItem("lifeGameData") || "{}");
 
-            const lastMonthKey = data.month;
-            if (lastMonthKey !== thisMonthKey) {
-                monthlyCompleted = {0: false, 1: false, 2: monthlyCompleted[2] || false};
+            // 每月重置
+            if (data.month !== thisMonthKey) {
+                monthlyCompleted = {0: false, 1: false, 2: data.monthlyCompleted?.[2] || false};
                 if (currentDay === 1 && currentMonth % 2 === 1) {
                     monthlyCompleted[2] = false;
                 }
             }
 
-            if (data.weekStart === weekStart && data.date === today.toDateString() && data.month === thisMonthKey) {
+            // 每週重置 + 計算上週總分
+            let showWeekSummary = false;
+            if (data.weekStart !== currentWeekStart) {
+                // 跨週時，記錄上週總分（如果有上週數據）
+                if (data.lastWeekTotalPoints !== undefined) {
+                    lastWeekTotalPoints = data.lastWeekTotalPoints;
+                } else {
+                    // 如果沒有歷史記錄，假設上週總分為當前總積分（初次跨週）
+                    lastWeekTotalPoints = points;
+                }
+                showWeekSummary = true;
+
+                // 重置本週數據
+                weeklyCompleted = {};
+                workoutCount = 0;
+                materialCount = 0;
+            }
+
+            if (data.weekStart === currentWeekStart && data.date === today.toDateString() && data.month === thisMonthKey) {
                 points = data.points || 0;
                 completed = data.completed || {};
                 weeklyCompleted = data.weeklyCompleted || {};
@@ -216,25 +233,29 @@
                 workHours = data.workHours || 0;
                 studyHours = data.studyHours || 0;
                 sleepPts = data.sleepPts || 0;
-            } else if (data.weekStart !== weekStart) {
-                workoutCount = 0; materialCount = 0;
-                weeklyCompleted = {};
-                completed = {}; redeemCount = {phone: 0, game: 0};
-                workHours = 0; studyHours = 0;
-                sleepPts = 0;
+                lastWeekTotalPoints = data.lastWeekTotalPoints || 0;
             } else {
-                completed = {}; redeemCount = {phone: 0, game: 0};
-                workHours = 0; studyHours = 0;
+                completed = {};
+                redeemCount = {phone: 0, game: 0};
+                workHours = 0;
+                studyHours = 0;
                 sleepPts = 0;
                 points = data.points || 0;
+                lastWeekTotalPoints = data.lastWeekTotalPoints || 0;
             }
+
             updateAll();
+
+            // 每週一第一次開啟顯示上週總分
+            if (showWeekSummary && lastWeekTotalPoints > 0) {
+                alert(`上週總積分：${lastWeekTotalPoints} 分\n恭喜！繼續保持！`);
+            }
         }
 
         function saveData() {
             localStorage.setItem("lifeGameData", JSON.stringify({
                 date: today.toDateString(),
-                weekStart,
+                weekStart: currentWeekStart,
                 month: thisMonthKey,
                 points,
                 completed,
@@ -247,7 +268,8 @@
                 materialCount,
                 workHours,
                 studyHours,
-                sleepPts
+                sleepPts,
+                lastWeekTotalPoints // 儲存上週總分，供下週使用
             }));
         }
 
