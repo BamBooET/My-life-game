@@ -174,7 +174,7 @@
         let workHours = 0;
         let studyHours = 0;
         let sleepPts = 0;
-        let lastWeekTotalPoints = 0; // 新增：上週總分
+        let lastWeekTotalPoints = 0;
 
         const today = new Date();
         const currentDay = today.getDate();
@@ -191,88 +191,124 @@
             return d.toDateString();
         }
 
-        function loadData() {
-            const data = JSON.parse(localStorage.getItem("lifeGameData") || "{}");
+        // IndexedDB 設定
+        let db;
+        const dbName = "LifeGameDB";
+        const storeName = "dataStore";
 
-            // 每月重置
-            if (data.month !== thisMonthKey) {
-                monthlyCompleted = {0: false, 1: false, 2: data.monthlyCompleted?.[2] || false};
-                if (currentDay === 1 && currentMonth % 2 === 1) {
-                    monthlyCompleted[2] = false;
+        function openDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(dbName, 1);
+                request.onerror = reject;
+                request.onsuccess = (event) => {
+                    db = event.target.result;
+                    resolve(db);
+                };
+                request.onupgradeneeded = (event) => {
+                    const db = event.target.result;
+                    db.createObjectStore(storeName, { keyPath: "id" });
+                };
+            });
+        }
+
+        async function loadData() {
+            await openDB();
+            const transaction = db.transaction(storeName, "readonly");
+            const store = transaction.objectStore(storeName);
+            const request = store.get("lifeGameData");
+
+            request.onsuccess = async (event) => {
+                let data = request.result ? request.result.data : {};
+
+                // 遷移舊 localStorage（如果還存在）
+                const oldData = JSON.parse(localStorage.getItem("lifeGameData") || "{}");
+                if (Object.keys(oldData).length > 0) {
+                    data = oldData;
+                    await saveData(); // 遷移到 IndexedDB
+                    localStorage.removeItem("lifeGameData");
                 }
-            }
 
-            // 每週重置 + 計算上週總分
-            let showWeekSummary = false;
-            if (data.weekStart !== currentWeekStart) {
-                // 跨週時，記錄上週總分（如果有上週數據）
-                if (data.lastWeekTotalPoints !== undefined) {
-                    lastWeekTotalPoints = data.lastWeekTotalPoints;
+                let showWeekSummary = false;
+
+                // 每月重置
+                if (data.month !== thisMonthKey) {
+                    monthlyCompleted = {0: false, 1: false, 2: data.monthlyCompleted?.[2] || false};
+                    if (currentDay === 1 && currentMonth % 2 === 1) {
+                        monthlyCompleted[2] = false;
+                    }
+                }
+
+                // 每週重置 + 上週總分顯示
+                if (data.weekStart !== currentWeekStart) {
+                    lastWeekTotalPoints = data.lastWeekTotalPoints || points; // 如果沒有記錄，用當前總分當作上週
+                    showWeekSummary = true;
+
+                    weeklyCompleted = {};
+                    workoutCount = 0;
+                    materialCount = 0;
+                }
+
+                if (data.weekStart === currentWeekStart && data.date === today.toDateString() && data.month === thisMonthKey) {
+                    points = data.points || 0;
+                    completed = data.completed || {};
+                    weeklyCompleted = data.weeklyCompleted || {};
+                    monthlyCompleted = data.monthlyCompleted || monthlyCompleted;
+                    tempTasks = data.tempTasks || [];
+                    tempCompleted = data.tempCompleted || {};
+                    redeemCount = data.redeemCount || {phone: 0, game: 0};
+                    workoutCount = data.workoutCount || 0;
+                    materialCount = data.materialCount || 0;
+                    workHours = data.workHours || 0;
+                    studyHours = data.studyHours || 0;
+                    sleepPts = data.sleepPts || 0;
+                    lastWeekTotalPoints = data.lastWeekTotalPoints || 0;
                 } else {
-                    // 如果沒有歷史記錄，假設上週總分為當前總積分（初次跨週）
-                    lastWeekTotalPoints = points;
+                    completed = {};
+                    redeemCount = {phone: 0, game: 0};
+                    workHours = 0;
+                    studyHours = 0;
+                    sleepPts = 0;
+                    points = data.points || 0;
+                    lastWeekTotalPoints = data.lastWeekTotalPoints || 0;
                 }
-                showWeekSummary = true;
 
-                // 重置本週數據
-                weeklyCompleted = {};
-                workoutCount = 0;
-                materialCount = 0;
-            }
+                updateAll();
 
-            if (data.weekStart === currentWeekStart && data.date === today.toDateString() && data.month === thisMonthKey) {
-                points = data.points || 0;
-                completed = data.completed || {};
-                weeklyCompleted = data.weeklyCompleted || {};
-                monthlyCompleted = data.monthlyCompleted || monthlyCompleted;
-                tempTasks = data.tempTasks || [];
-                tempCompleted = data.tempCompleted || {};
-                redeemCount = data.redeemCount || {phone: 0, game: 0};
-                workoutCount = data.workoutCount || 0;
-                materialCount = data.materialCount || 0;
-                workHours = data.workHours || 0;
-                studyHours = data.studyHours || 0;
-                sleepPts = data.sleepPts || 0;
-                lastWeekTotalPoints = data.lastWeekTotalPoints || 0;
-            } else {
-                completed = {};
-                redeemCount = {phone: 0, game: 0};
-                workHours = 0;
-                studyHours = 0;
-                sleepPts = 0;
-                points = data.points || 0;
-                lastWeekTotalPoints = data.lastWeekTotalPoints || 0;
-            }
-
-            updateAll();
-
-            // 每週一第一次開啟顯示上週總分
-            if (showWeekSummary && lastWeekTotalPoints > 0) {
-                alert(`上週總積分：${lastWeekTotalPoints} 分\n恭喜！繼續保持！`);
-            }
+                // 每週一第一次開啟顯示上週總分
+                if (showWeekSummary && lastWeekTotalPoints > 0) {
+                    alert(`上週總積分：${lastWeekTotalPoints} 分\n恭喜你！繼續加油～`);
+                }
+            };
         }
 
-        function saveData() {
-            localStorage.setItem("lifeGameData", JSON.stringify({
-                date: today.toDateString(),
-                weekStart: currentWeekStart,
-                month: thisMonthKey,
-                points,
-                completed,
-                weeklyCompleted,
-                monthlyCompleted,
-                tempTasks,
-                tempCompleted,
-                redeemCount,
-                workoutCount,
-                materialCount,
-                workHours,
-                studyHours,
-                sleepPts,
-                lastWeekTotalPoints // 儲存上週總分，供下週使用
-            }));
+        async function saveData() {
+            if (!db) await openDB();
+            const transaction = db.transaction(storeName, "readwrite");
+            const store = transaction.objectStore(storeName);
+            store.put({
+                id: "lifeGameData",
+                data: {
+                    date: today.toDateString(),
+                    weekStart: currentWeekStart,
+                    month: thisMonthKey,
+                    points,
+                    completed,
+                    weeklyCompleted,
+                    monthlyCompleted,
+                    tempTasks,
+                    tempCompleted,
+                    redeemCount,
+                    workoutCount,
+                    materialCount,
+                    workHours,
+                    studyHours,
+                    sleepPts,
+                    lastWeekTotalPoints
+                }
+            });
         }
 
+        // 以下為原本的 updateAll、updateDailyTasks 等函數（完整保留，無省略）
         function updateAll() {
             updatePoints();
             updateDailyTasks();
@@ -420,9 +456,9 @@
             let minutes = today.getMinutes();
             let currentTime = hours * 60 + minutes;
             let pts = 0;
-            if (currentTime <= 1320) { // 22:00
+            if (currentTime <= 1320) {
                 pts = 3;
-            } else if (currentTime <= 1380) { // 23:00
+            } else if (currentTime <= 1380) {
                 pts = 1;
             } else {
                 pts = 0;
@@ -646,12 +682,10 @@
             setTimeout(() => eff.remove(), 1000);
         }
 
-        // 點擊積分跳轉到商店
         document.getElementById("points-btn").onclick = () => {
             switchSection("shop-section", "shop-btn");
         };
 
-        // 側邊欄開合
         const toggleBtn = document.getElementById("toggle-btn");
         const sidebar = document.getElementById("sidebar");
         const main = document.getElementById("main");
@@ -662,7 +696,6 @@
             toggleBtn.textContent = sidebar.classList.contains("hidden") ? "▶" : "◀";
         };
 
-        // 側邊欄切換
         document.getElementById("tasks-btn").onclick = () => switchSection("tasks-section", "tasks-btn");
         document.getElementById("shop-btn").onclick = () => switchSection("shop-section", "shop-btn");
         document.getElementById("history-btn").onclick = () => switchSection("history-section", "history-btn");
