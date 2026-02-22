@@ -113,7 +113,6 @@
             </div>
             <ul class="task-list" id="temp-tasks"></ul>
 
-            <!-- 手動重置按鍵 -->
             <div style="margin-top: 40px; text-align: center; padding: 20px 0; border-top: 1px solid #eee;">
                 <button id="new-week-btn" class="reward" style="margin: 10px;">開啟新的一週</button>
                 <button id="new-month-btn" class="reward" style="margin: 10px;">開啟新的一個月</button>
@@ -205,15 +204,12 @@
         function loadData() {
             const data = JSON.parse(localStorage.getItem("lifeGameData") || "{}");
 
-            // 每日自動重置
             if (data.date !== today.toDateString()) {
                 completed = {};
                 redeemCount = {phone: 0, game: 0};
                 workHours = 0;
                 studyHours = 0;
                 sleepPts = 0;
-                weeklyEarned = 0;   // 可選：每日重置週累計（視需求）
-                weeklySpent = 0;
             }
 
             points = data.points || 0;
@@ -269,13 +265,13 @@
 
         // ==================== 手動重置函數 ====================
         function resetNewWeek() {
-            if (!confirm("確定要開啟新的一週嗎？這會重置本週所有任務與連擊，並顯示上週總結。")) return;
+            if (!confirm("確定要開啟新的一週嗎？")) return;
 
             const totalEarned = weeklyEarned;
             const totalSpent = weeklySpent;
             const netPoints = totalEarned - totalSpent;
 
-            alert(`上週總結：\n獲得積分：${totalEarned} 分\n花費積分：${totalSpent} 分\n淨增積分：${netPoints} 分\n恭喜你！新的一週開始了～`);
+            alert(`上週總結：\n獲得積分：${totalEarned} 分\n花費積分：${totalSpent} 分\n淨增積分：${netPoints} 分`);
 
             weeklyEarned = 0;
             weeklySpent = 0;
@@ -290,13 +286,13 @@
         }
 
         function resetNewMonth() {
-            if (!confirm("確定要開啟新的一個月嗎？這會重置本月所有任務，並顯示上個月總結。")) return;
+            if (!confirm("確定要開啟新的一個月嗎？")) return;
 
             const totalEarned = monthlyEarned;
             const totalSpent = monthlySpent;
             const netPoints = totalEarned - totalSpent;
 
-            alert(`上個月總結：\n獲得積分：${totalEarned} 分\n花費積分：${totalSpent} 分\n淨增積分：${netPoints} 分\n新的一個月開始了～`);
+            alert(`上個月總結：\n獲得積分：${totalEarned} 分\n花費積分：${totalSpent} 分\n淨增積分：${netPoints} 分`);
 
             monthlyEarned = 0;
             monthlySpent = 0;
@@ -316,7 +312,7 @@
                     name: dailyTasks[k].name,
                     points: dailyTasks[k].points
                 })),
-                pointsEarned: weeklyEarned, // 使用週累計作為當天獲得（可調整）
+                pointsEarned: weeklyEarned,
                 redeemed: redeemCount.phone > 0 || redeemCount.game > 0 ? [
                     {type: 'phone', count: redeemCount.phone},
                     {type: 'game', count: redeemCount.game}
@@ -338,34 +334,27 @@
                 html += '<h4>完成的每日任務</h4>';
                 if (data.completedTasks && data.completedTasks.length > 0) {
                     html += '<ul>';
-                    data.completedTasks.forEach(task => {
-                        html += `<li>${task.name} (+${task.points} 分)</li>`;
-                    });
+                    data.completedTasks.forEach(task => html += `<li>${task.name} (+${task.points} 分)</li>`);
                     html += '</ul>';
                 } else {
                     html += '<p>沒有完成的每日任務</p>';
                 }
-
                 html += `<p class="history-total">當天獲得積分：${data.pointsEarned || 0} 分</p>`;
                 html += `<p class="history-total">總積分：${data.totalPoints || 0} 分</p>`;
-
                 if (data.redeemed && data.redeemed.length > 0) {
                     html += '<h4>兌換獎勵</h4><ul>';
-                    data.redeemed.forEach(r => {
-                        html += `<li>${r.type === 'phone' ? '玩手機' : '玩電動'} ${r.count} 次</li>`;
-                    });
+                    data.redeemed.forEach(r => html += `<li>${r.type === 'phone' ? '玩手機' : '玩電動'} ${r.count} 次</li>`);
                     html += '</ul>';
                 } else {
                     html += '<p>當天沒有兌換獎勵</p>';
                 }
-
                 historyContent.innerHTML = html;
             } else {
                 historyContent.innerHTML = '<p>該日期沒有記錄</p>';
             }
         }
 
-        // ==================== 更新函數（完整補回） ====================
+        // ==================== 更新函數 ====================
         function updateAll() {
             updatePoints();
             updateDailyTasks();
@@ -383,13 +372,9 @@
 
         function updateCharacter() {
             const img = document.getElementById("character-img");
-            if (points <= 50) {
-                img.src = "https://raw.githubusercontent.com/BamBooET/My-life-game/main/貧窮.png";
-            } else if (points <= 200) {
-                img.src = "https://raw.githubusercontent.com/BamBooET/My-life-game/main/普通.png";
-            } else {
-                img.src = "https://raw.githubusercontent.com/BamBooET/My-life-game/main/富豪.png";
-            }
+            if (points <= 50) img.src = "https://raw.githubusercontent.com/BamBooET/My-life-game/main/貧窮.png";
+            else if (points <= 200) img.src = "https://raw.githubusercontent.com/BamBooET/My-life-game/main/普通.png";
+            else img.src = "https://raw.githubusercontent.com/BamBooET/My-life-game/main/富豪.png";
         }
 
         function updateDailyTasks() {
@@ -407,7 +392,7 @@
                 li.innerHTML = `
                     <span>${task.name} (+${task.points} 分)</span>
                     <div class="buttons">
-                        <button class="complete-task" data-index="${i}" data-points="${task.points}">
+                        <button class="complete-task" data-index="${i}" data-points="${task.points}" ${completed[i] || !isBeforeDeadline ? "disabled" : ""}>
                             ${completed[i] ? "已完成" : "完成"}
                         </button>
                         ${completed[i] ? `<button class="cancel-task" data-index="${i}" data-points="${task.points}">取消</button>` : ""}
@@ -432,7 +417,7 @@
                 li.innerHTML = `
                     <span>${task.name} (+${task.points} 分)</span>
                     <div class="buttons">
-                        <button class="complete-weekly" data-index="${i}" data-points="${task.points}">
+                        <button class="complete-weekly" data-index="${i}" data-points="${task.points}" ${weeklyCompleted[i] ? "disabled" : ""}>
                             ${weeklyCompleted[i] ? "已完成" : "完成"}
                         </button>
                         ${weeklyCompleted[i] ? `<button class="cancel-weekly" data-index="${i}">取消</button>` : ""}
@@ -451,7 +436,7 @@
                 li.innerHTML = `
                     <span>${task.name} (+${task.points} 分)</span>
                     <div class="buttons">
-                        <button class="complete-monthly" data-index="${i}" data-points="${task.points}">
+                        <button class="complete-monthly" data-index="${i}" data-points="${task.points}" ${monthlyCompleted[i] ? "disabled" : ""}>
                             ${monthlyCompleted[i] ? "已完成" : "完成"}
                         </button>
                         ${monthlyCompleted[i] ? `<button class="cancel-monthly" data-index="${i}">取消</button>` : ""}
@@ -470,7 +455,7 @@
                 li.innerHTML = `
                     <span>${task.name} (+${task.points} 分)</span>
                     <div class="buttons">
-                        <button class="complete-temp" data-index="${i}">
+                        <button class="complete-temp" data-index="${i}" ${tempCompleted[i] ? "disabled" : ""}>
                             ${tempCompleted[i] ? "已完成" : "完成"}
                         </button>
                         ${tempCompleted[i] ? `<button class="cancel-temp" data-index="${i}">取消</button>` : ""}
@@ -722,7 +707,7 @@
         }
 
         function resetPoints() {
-            if (!confirm("確定要清零所有積分嗎？這無法復原！")) return;
+            if (!confirm("確定要清零所有積分嗎？")) return;
             points = 0;
             saveData();
             updateAll();
@@ -744,24 +729,48 @@
             document.getElementById(btnId).classList.add("active");
         }
 
-        // ==================== 事件綁定 ====================
+        // ==================== 事件綁定（全部委託到 tasks-section，避免動態元素問題） ====================
         document.addEventListener("DOMContentLoaded", () => {
-            document.getElementById("sleep-btn")?.addEventListener("click", completeSleep);
-            document.getElementById("sleep-cancel-btn")?.addEventListener("click", undoSleep);
+            // 所有任務頁按鈕事件委託到 tasks-section
+            document.getElementById("tasks-section")?.addEventListener("click", (e) => {
+                const target = e.target;
 
-            document.getElementById("daily-tasks")?.addEventListener("click", (e) => {
-                if (e.target.classList.contains("complete-task")) {
-                    const index = parseInt(e.target.dataset.index);
-                    const pts = parseInt(e.target.dataset.points);
+                // 每日任務
+                if (target.classList.contains("complete-task")) {
+                    const index = parseInt(target.dataset.index);
+                    const pts = parseInt(target.dataset.points);
                     completeTask(index, pts);
                 }
-                if (e.target.classList.contains("cancel-task")) {
-                    const index = parseInt(e.target.dataset.index);
-                    const pts = parseInt(e.target.dataset.points);
+                if (target.classList.contains("cancel-task")) {
+                    const index = parseInt(target.dataset.index);
+                    const pts = parseInt(target.dataset.points);
                     undoTask(index, pts);
+                }
+
+                // 每週任務
+                if (target.classList.contains("complete-weekly")) {
+                    const index = parseInt(target.dataset.index);
+                    const pts = parseInt(target.dataset.points);
+                    completeWeekly(index, pts);
+                }
+                if (target.classList.contains("cancel-weekly")) {
+                    const index = parseInt(target.dataset.index);
+                    undoWeekly(index);
+                }
+
+                // 每月任務
+                if (target.classList.contains("complete-monthly")) {
+                    const index = parseInt(target.dataset.index);
+                    const pts = parseInt(target.dataset.points);
+                    completeMonthly(index, pts);
+                }
+                if (target.classList.contains("cancel-monthly")) {
+                    const index = parseInt(target.dataset.index);
+                    undoMonthly(index);
                 }
             });
 
+            // 無上限計數任務
             document.getElementById("add-work-btn")?.addEventListener("click", addWork);
             document.getElementById("undo-work-btn")?.addEventListener("click", undoWork);
             document.getElementById("add-study-btn")?.addEventListener("click", addStudy);
@@ -771,21 +780,30 @@
             document.getElementById("add-material-btn")?.addEventListener("click", addMaterial);
             document.getElementById("undo-material-btn")?.addEventListener("click", undoMaterial);
 
+            // 睡覺
+            document.getElementById("sleep-btn")?.addEventListener("click", completeSleep);
+            document.getElementById("sleep-cancel-btn")?.addEventListener("click", undoSleep);
+
+            // 臨時任務
             document.getElementById("add-temp-btn")?.addEventListener("click", addTempTask);
 
+            // 獎勵兌換
             document.getElementById("redeem-phone")?.addEventListener("click", () => redeem(3, 'phone'));
             document.getElementById("redeem-game")?.addEventListener("click", () => redeem(6, 'game'));
             document.getElementById("prompt-buy")?.addEventListener("click", promptBuy);
             document.getElementById("reset-points")?.addEventListener("click", resetPoints);
 
+            // 手動重置
             document.getElementById("new-week-btn")?.addEventListener("click", resetNewWeek);
             document.getElementById("new-month-btn")?.addEventListener("click", resetNewMonth);
 
+            // 過往查詢
             document.getElementById("history-date")?.addEventListener("change", (e) => {
                 const selectedDate = e.target.value;
                 if (selectedDate) loadHistory(selectedDate);
             });
 
+            // 側邊欄
             document.getElementById("toggle-btn")?.addEventListener("click", () => {
                 document.getElementById("sidebar").classList.toggle("hidden");
                 document.getElementById("main").classList.toggle("full");
