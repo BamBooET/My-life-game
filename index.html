@@ -25,7 +25,6 @@
         .task button:disabled { background: #a5d6a7; opacity: 0.6; cursor: not-allowed; }
         .task.completed { opacity: 0.6; order: 2; }
         .task:not(.completed) { order: 1; }
-        .task-list { display: flex; flex-direction: column; }
         .reward button { background: #ff9800; width: 100%; padding: 15px; margin: 10px 0; font-size: 18px; }
         .reset-button { background: #9e9e9e; }
         .effect { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 50px; color: #4CAF50; pointer-events: none; animation: fade 1s; z-index: 1000; }
@@ -115,7 +114,7 @@
             <ul class="task-list" id="temp-tasks"></ul>
 
             <!-- 手動重置按鍵 -->
-            <div style="margin-top: 40px; text-align: center; padding: 20px 0; border-top: 1px solid #eee; ">
+            <div style="margin-top: 40px; text-align: center; padding: 20px 0; border-top: 1px solid #eee;">
                 <button id="new-week-btn" class="reward" style="margin: 10px;">開啟新的一週</button>
                 <button id="new-month-btn" class="reward" style="margin: 10px;">開啟新的一個月</button>
             </div>
@@ -213,6 +212,8 @@
                 workHours = 0;
                 studyHours = 0;
                 sleepPts = 0;
+                weeklyEarned = 0;   // 可選：每日重置週累計（視需求）
+                weeklySpent = 0;
             }
 
             points = data.points || 0;
@@ -306,7 +307,7 @@
             showEffect("新的一個月已開啟！");
         }
 
-        // ==================== 過往查詢功能 ====================
+        // ==================== 過往查詢 ====================
         function saveDailyRecord() {
             const key = "history-" + today.toISOString().split('T')[0];
             const dailyData = {
@@ -315,7 +316,7 @@
                     name: dailyTasks[k].name,
                     points: dailyTasks[k].points
                 })),
-                pointsEarned: points - (lastWeekTotalPoints || 0),
+                pointsEarned: weeklyEarned, // 使用週累計作為當天獲得（可調整）
                 redeemed: redeemCount.phone > 0 || redeemCount.game > 0 ? [
                     {type: 'phone', count: redeemCount.phone},
                     {type: 'game', count: redeemCount.game}
@@ -364,7 +365,7 @@
             }
         }
 
-        // ==================== 所有更新與操作函數 ====================
+        // ==================== 更新函數（完整補回） ====================
         function updateAll() {
             updatePoints();
             updateDailyTasks();
@@ -376,15 +377,378 @@
             updateCharacter();
         }
 
-        // 其他 update 函數保持原樣
+        function updatePoints() {
+            document.getElementById("points").textContent = points;
+        }
+
+        function updateCharacter() {
+            const img = document.getElementById("character-img");
+            if (points <= 50) {
+                img.src = "https://raw.githubusercontent.com/BamBooET/My-life-game/main/貧窮.png";
+            } else if (points <= 200) {
+                img.src = "https://raw.githubusercontent.com/BamBooET/My-life-game/main/普通.png";
+            } else {
+                img.src = "https://raw.githubusercontent.com/BamBooET/My-life-game/main/富豪.png";
+            }
+        }
+
+        function updateDailyTasks() {
+            const list = document.getElementById("daily-tasks");
+            list.innerHTML = "";
+            const now = new Date();
+            const hours = now.getHours();
+            const minutes = now.getMinutes();
+            const isBeforeDeadline = (hours < 21) || (hours === 21 && minutes <= 30);
+
+            dailyTasks.forEach((task, i) => {
+                const li = document.createElement("li");
+                li.className = "task" + (completed[i] ? " completed" : "");
+
+                li.innerHTML = `
+                    <span>${task.name} (+${task.points} 分)</span>
+                    <div class="buttons">
+                        <button class="complete-task" data-index="${i}" data-points="${task.points}">
+                            ${completed[i] ? "已完成" : "完成"}
+                        </button>
+                        ${completed[i] ? `<button class="cancel-task" data-index="${i}" data-points="${task.points}">取消</button>` : ""}
+                    </div>
+                `;
+
+                if (!isBeforeDeadline && !completed[i]) {
+                    li.innerHTML += `<small style="color: #f44336; margin-left: 10px;">（已過 21:30 截止時間）</small>`;
+                }
+
+                list.appendChild(li);
+            });
+        }
+
+        function updateWeeklyTasks() {
+            const list = document.getElementById("weekly-tasks");
+            list.innerHTML = "";
+            weeklyTasks.forEach((task, i) => {
+                const li = document.createElement("li");
+                li.className = "task" + (weeklyCompleted[i] ? " completed" : "");
+
+                li.innerHTML = `
+                    <span>${task.name} (+${task.points} 分)</span>
+                    <div class="buttons">
+                        <button class="complete-weekly" data-index="${i}" data-points="${task.points}">
+                            ${weeklyCompleted[i] ? "已完成" : "完成"}
+                        </button>
+                        ${weeklyCompleted[i] ? `<button class="cancel-weekly" data-index="${i}">取消</button>` : ""}
+                    </div>
+                `;
+                list.appendChild(li);
+            });
+        }
+
+        function updateMonthlyTasks() {
+            const list = document.getElementById("monthly-tasks");
+            list.innerHTML = "";
+            monthlyTasks.forEach((task, i) => {
+                const li = document.createElement("li");
+                li.className = "task" + (monthlyCompleted[i] ? " completed" : "");
+                li.innerHTML = `
+                    <span>${task.name} (+${task.points} 分)</span>
+                    <div class="buttons">
+                        <button class="complete-monthly" data-index="${i}" data-points="${task.points}">
+                            ${monthlyCompleted[i] ? "已完成" : "完成"}
+                        </button>
+                        ${monthlyCompleted[i] ? `<button class="cancel-monthly" data-index="${i}">取消</button>` : ""}
+                    </div>
+                `;
+                list.appendChild(li);
+            });
+        }
+
+        function updateTempTasks() {
+            const list = document.getElementById("temp-tasks");
+            list.innerHTML = "";
+            tempTasks.forEach((task, i) => {
+                const li = document.createElement("li");
+                li.className = "task" + (tempCompleted[i] ? " completed" : "");
+                li.innerHTML = `
+                    <span>${task.name} (+${task.points} 分)</span>
+                    <div class="buttons">
+                        <button class="complete-temp" data-index="${i}">
+                            ${tempCompleted[i] ? "已完成" : "完成"}
+                        </button>
+                        ${tempCompleted[i] ? `<button class="cancel-temp" data-index="${i}">取消</button>` : ""}
+                    </div>
+                `;
+                list.appendChild(li);
+            });
+        }
+
+        function updateCounters() {
+            document.getElementById("work-hours").textContent = workHours;
+            document.getElementById("study-hours").textContent = studyHours;
+            document.getElementById("workout-count").textContent = workoutCount;
+            document.getElementById("material-count").textContent = materialCount;
+
+            const workoutPoints = [1,1,2,2,3,3];
+            document.getElementById("workout-next").textContent = workoutCount < 6 ? workoutPoints[workoutCount] : 4;
+            document.getElementById("material-next").textContent = materialCount + 2;
+
+            document.getElementById("undo-work-btn").disabled = workHours === 0;
+            document.getElementById("undo-study-btn").disabled = studyHours === 0;
+            document.getElementById("undo-workout-btn").disabled = workoutCount === 0;
+            document.getElementById("undo-material-btn").disabled = materialCount === 0;
+        }
+
+        function updateSleepButton() {
+            const sleepBtn = document.getElementById("sleep-btn");
+            const cancelBtn = document.getElementById("sleep-cancel-btn");
+            if (sleepPts > 0) {
+                sleepBtn.disabled = true;
+                cancelBtn.style.display = "inline-block";
+            } else {
+                sleepBtn.disabled = false;
+                cancelBtn.style.display = "none";
+            }
+        }
+
+        // ==================== 操作函數 ====================
+        function completeSleep() {
+            let hours = today.getHours();
+            let minutes = today.getMinutes();
+            let currentTime = hours * 60 + minutes;
+            let pts = 0;
+            if (currentTime <= 1320) pts = 3;
+            else if (currentTime <= 1380) pts = 1;
+            else pts = 0;
+            if (pts === 0) return alert("已經超過23:00，睡覺不加分喔～");
+            sleepPts = pts;
+            points += pts;
+            weeklyEarned += pts;
+            monthlyEarned += pts;
+            saveData();
+            saveDailyRecord();
+            updateAll();
+            showEffect("+" + pts);
+        }
+
+        function undoSleep() {
+            if (sleepPts === 0) return;
+            points -= sleepPts;
+            sleepPts = 0;
+            saveData();
+            updateAll();
+            showEffect("-" + sleepPts);
+        }
+
+        function completeTask(index, pts) {
+            if (completed[index]) return;
+            completed[index] = true;
+            points += pts;
+            weeklyEarned += pts;
+            monthlyEarned += pts;
+            saveData();
+            saveDailyRecord();
+            updateAll();
+            showEffect("+" + pts);
+        }
+
+        function undoTask(index, pts) {
+            if (!completed[index]) return;
+            completed[index] = false;
+            points -= pts;
+            saveData();
+            updateAll();
+            showEffect("-" + pts);
+        }
+
+        function completeWeekly(index, pts) {
+            if (weeklyCompleted[index]) return;
+            weeklyCompleted[index] = true;
+            points += pts;
+            weeklyEarned += pts;
+            monthlyEarned += pts;
+            saveData();
+            updateAll();
+            showEffect("+" + pts);
+        }
+
+        function undoWeekly(index) {
+            if (!weeklyCompleted[index]) return;
+            weeklyCompleted[index] = false;
+            points -= weeklyTasks[index].points;
+            saveData();
+            updateAll();
+            showEffect("-" + weeklyTasks[index].points);
+        }
+
+        function completeMonthly(index, pts) {
+            if (monthlyCompleted[index]) return;
+            monthlyCompleted[index] = true;
+            points += pts;
+            weeklyEarned += pts;
+            monthlyEarned += pts;
+            saveData();
+            updateAll();
+            showEffect("+" + pts);
+        }
+
+        function undoMonthly(index) {
+            if (!monthlyCompleted[index]) return;
+            monthlyCompleted[index] = false;
+            points -= monthlyTasks[index].points;
+            saveData();
+            updateAll();
+            showEffect("-" + monthlyTasks[index].points);
+        }
+
+        function addWorkout() {
+            if (workoutCount >= 6) return alert("本週已達上限！");
+            const pointsMap = [1,1,2,2,3,3];
+            const pts = pointsMap[workoutCount] || 4;
+            points += pts;
+            weeklyEarned += pts;
+            monthlyEarned += pts;
+            workoutCount++;
+            saveData();
+            updateAll();
+            showEffect("+" + pts);
+        }
+
+        function undoWorkout() {
+            if (workoutCount <= 0) return;
+            const pointsMap = [1,1,2,2,3,3];
+            const pts = pointsMap[workoutCount - 1] || 4;
+            points -= pts;
+            workoutCount--;
+            saveData();
+            updateAll();
+            showEffect("-" + pts);
+        }
+
+        function addMaterial() {
+            const pts = materialCount + 2;
+            points += pts;
+            weeklyEarned += pts;
+            monthlyEarned += pts;
+            materialCount++;
+            saveData();
+            updateAll();
+            showEffect("+" + pts);
+        }
+
+        function undoMaterial() {
+            if (materialCount <= 0) return;
+            const pts = materialCount + 1;
+            points -= pts;
+            materialCount--;
+            saveData();
+            updateAll();
+            showEffect("-" + pts);
+        }
+
+        function addWork() {
+            points += 1;
+            weeklyEarned += 1;
+            monthlyEarned += 1;
+            workHours++;
+            saveData();
+            updateAll();
+            showEffect("+1");
+        }
+
+        function undoWork() {
+            if (workHours <= 0) return;
+            points -= 1;
+            workHours--;
+            saveData();
+            updateAll();
+            showEffect("-1");
+        }
+
+        function addStudy() {
+            points += 2;
+            weeklyEarned += 2;
+            monthlyEarned += 2;
+            studyHours++;
+            saveData();
+            updateAll();
+            showEffect("+2");
+        }
+
+        function undoStudy() {
+            if (studyHours <= 0) return;
+            points -= 2;
+            studyHours--;
+            saveData();
+            updateAll();
+            showEffect("-2");
+        }
+
+        function addTempTask() {
+            const name = document.getElementById("temp-name").value.trim();
+            const pts = parseInt(document.getElementById("temp-points").value);
+            if (!name || isNaN(pts) || pts <= 0) return alert("請輸入有效任務名稱與分數！");
+            if (!confirm(`確認新增並立即完成任務「${name}」獲得 ${pts} 分？`)) return;
+            points += pts;
+            weeklyEarned += pts;
+            monthlyEarned += pts;
+            saveData();
+            updateAll();
+            showEffect("+" + pts);
+            document.getElementById("temp-name").value = "";
+            document.getElementById("temp-points").value = "";
+        }
+
+        function redeem(cost, type) {
+            if (points < cost) return alert("積分不足！");
+            if (!confirm(`花 ${cost} 分兌換？`)) return;
+            points -= cost;
+            weeklySpent += cost;
+            monthlySpent += cost;
+            saveData();
+            updateAll();
+            showEffect("兌換成功！");
+        }
+
+        function promptBuy() {
+            const money = prompt("想花多少元買東西？（1 分 = 3 元）");
+            if (!money || isNaN(money) || money <= 0) return;
+            const need = Math.ceil(money / 3);
+            if (points < need) return alert("積分不足！需要 " + need + " 分");
+            if (!confirm(`花 ${need} 分（${money} 元）購買？`)) return;
+            points -= need;
+            weeklySpent += need;
+            monthlySpent += need;
+            saveData();
+            updateAll();
+            showEffect("購買成功！");
+        }
+
+        function resetPoints() {
+            if (!confirm("確定要清零所有積分嗎？這無法復原！")) return;
+            points = 0;
+            saveData();
+            updateAll();
+            showEffect("積分已清零");
+        }
+
+        function showEffect(text) {
+            const eff = document.createElement("div");
+            eff.className = "effect";
+            eff.textContent = text;
+            document.body.appendChild(eff);
+            setTimeout(() => eff.remove(), 1000);
+        }
+
+        function switchSection(sectionId, btnId) {
+            document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
+            document.querySelectorAll(".sidebar button").forEach(b => b.classList.remove("active"));
+            document.getElementById(sectionId).classList.add("active");
+            document.getElementById(btnId).classList.add("active");
+        }
 
         // ==================== 事件綁定 ====================
         document.addEventListener("DOMContentLoaded", () => {
-            // 睡覺按鈕
             document.getElementById("sleep-btn")?.addEventListener("click", completeSleep);
             document.getElementById("sleep-cancel-btn")?.addEventListener("click", undoSleep);
 
-            // 每日任務事件委託
             document.getElementById("daily-tasks")?.addEventListener("click", (e) => {
                 if (e.target.classList.contains("complete-task")) {
                     const index = parseInt(e.target.dataset.index);
@@ -398,7 +762,6 @@
                 }
             });
 
-            // 無上限任務
             document.getElementById("add-work-btn")?.addEventListener("click", addWork);
             document.getElementById("undo-work-btn")?.addEventListener("click", undoWork);
             document.getElementById("add-study-btn")?.addEventListener("click", addStudy);
@@ -408,26 +771,21 @@
             document.getElementById("add-material-btn")?.addEventListener("click", addMaterial);
             document.getElementById("undo-material-btn")?.addEventListener("click", undoMaterial);
 
-            // 臨時任務
             document.getElementById("add-temp-btn")?.addEventListener("click", addTempTask);
 
-            // 獎勵兌換
             document.getElementById("redeem-phone")?.addEventListener("click", () => redeem(3, 'phone'));
             document.getElementById("redeem-game")?.addEventListener("click", () => redeem(6, 'game'));
             document.getElementById("prompt-buy")?.addEventListener("click", promptBuy);
             document.getElementById("reset-points")?.addEventListener("click", resetPoints);
 
-            // 手動重置
             document.getElementById("new-week-btn")?.addEventListener("click", resetNewWeek);
             document.getElementById("new-month-btn")?.addEventListener("click", resetNewMonth);
 
-            // 過往查詢
             document.getElementById("history-date")?.addEventListener("change", (e) => {
                 const selectedDate = e.target.value;
                 if (selectedDate) loadHistory(selectedDate);
             });
 
-            // 側邊欄切換
             document.getElementById("toggle-btn")?.addEventListener("click", () => {
                 document.getElementById("sidebar").classList.toggle("hidden");
                 document.getElementById("main").classList.toggle("full");
@@ -438,34 +796,7 @@
             document.getElementById("shop-btn")?.addEventListener("click", () => switchSection("shop-section", "shop-btn"));
             document.getElementById("history-btn")?.addEventListener("click", () => switchSection("history-section", "history-btn"));
 
-            // 積分點擊跳商店
             document.getElementById("points-btn")?.addEventListener("click", () => switchSection("shop-section", "shop-btn"));
-
-            // 每週任務事件委託（debug 關鍵修正）
-            document.getElementById("weekly-tasks")?.addEventListener("click", (e) => {
-                if (e.target.classList.contains("complete-weekly")) {
-                    const index = parseInt(e.target.dataset.index);
-                    const pts = parseInt(e.target.dataset.points);
-                    completeWeekly(index, pts);
-                }
-                if (e.target.classList.contains("cancel-weekly")) {
-                    const index = parseInt(e.target.dataset.index);
-                    undoWeekly(index);
-                }
-            });
-
-            // 每月任務事件委託（debug 關鍵修正）
-            document.getElementById("monthly-tasks")?.addEventListener("click", (e) => {
-                if (e.target.classList.contains("complete-monthly")) {
-                    const index = parseInt(e.target.dataset.index);
-                    const pts = parseInt(e.target.dataset.points);
-                    completeMonthly(index, pts);
-                }
-                if (e.target.classList.contains("cancel-monthly")) {
-                    const index = parseInt(e.target.dataset.index);
-                    undoMonthly(index);
-                }
-            });
         });
 
         // 載入資料
