@@ -841,10 +841,19 @@
 
             // 側邊欄
             document.getElementById("toggle-btn")?.addEventListener("click", () => {
-                document.getElementById("sidebar").classList.toggle("hidden");
-                document.getElementById("main").classList.toggle("full");
-                document.getElementById("toggle-btn").textContent = document.getElementById("sidebar").classList.contains("hidden") ? "▶" : "◀";
-            });
+    const sidebar = document.getElementById("sidebar");
+    const main = document.getElementById("main");
+
+    sidebar.classList.toggle("hidden");
+
+    if (!sidebar.classList.contains("hidden")) {
+        main.classList.add("pushed");
+    } else {
+        main.classList.remove("pushed");
+    }
+
+    document.getElementById("toggle-btn").textContent = sidebar.classList.contains("hidden") ? "▶" : "◀";
+});
 
             document.getElementById("tasks-btn")?.addEventListener("click", () => switchSection("tasks-section", "tasks-btn"));
             document.getElementById("shop-btn")?.addEventListener("click", () => switchSection("shop-section", "shop-btn"));
