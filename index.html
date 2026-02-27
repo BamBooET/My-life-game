@@ -210,41 +210,44 @@
 
         // ==================== localStorage 讀寫 ====================
         function loadData() {
-            const data = JSON.parse(localStorage.getItem("lifeGameData") || "{}");
-
-            // 每日自動重置（強制檢查日期並清空）
-            if (data.date !== today.toDateString()) {
-                completed = {};
-                redeemCount = {phone: 0, game: 0};
-                workHours = 0;
-                studyHours = 0;
-                sleepPts = 0;
-                // 每日不重置週/月累計，因為你希望週/月手動控制
-            }
-
-            points = data.points || 0;
-            completed = data.completed || {};
-            weeklyCompleted = data.weeklyCompleted || {};
-            monthlyCompleted = data.monthlyCompleted || {};
-            tempTasks = data.tempTasks || [];
-            tempCompleted = data.tempCompleted || {};
-            redeemCount = data.redeemCount || {phone: 0, game: 0};
-            workoutCount = data.workoutCount || 0;
-            materialCount = data.materialCount || 0;
-            workHours = data.workHours || 0;
-            studyHours = data.studyHours || 0;
-            sleepPts = data.sleepPts || 0;
-            lastWeekTotalPoints = data.lastWeekTotalPoints || 0;
-            lastMonthTotalPoints = data.lastMonthTotalPoints || 0;
-            currentWeekStart = data.currentWeekStart || getCurrentWeekStart();
-            weeklyEarned = data.weeklyEarned || 0;
-            weeklySpent = data.weeklySpent || 0;
-            monthlyEarned = data.monthlyEarned || 0;
-            monthlySpent = data.monthlySpent || 0;
-
-            // 強制刷新畫面
-            updateAll();
-        }
+    const data = JSON.parse(localStorage.getItem("lifeGameData") || "{}");
+    const storedDate = data.date || ""; // 舊日期（可能不存在）
+    const currentDateStr = today.toDateString(); // 今天日期
+    // 如果儲存的日期不是今天，就強制重置每日狀態
+    if (storedDate !== currentDateStr) {
+        completed = {};
+        redeemCount = {phone: 0, game: 0};
+        workHours = 0;
+        studyHours = 0;
+        sleepPts = 0;
+        // 注意：這裡不重置週/月累計，因為你希望手動控制
+    }
+    // 載入其他資料（已重置的會覆蓋舊值）
+    points = data.points || 0;
+    completed = completed || data.completed || {}; // 如果剛重置，就用新的空物件
+    weeklyCompleted = data.weeklyCompleted || {};
+    monthlyCompleted = data.monthlyCompleted || {};
+    tempTasks = data.tempTasks || [];
+    tempCompleted = data.tempCompleted || {};
+    redeemCount = redeemCount || data.redeemCount || {phone: 0, game: 0};
+    workoutCount = data.workoutCount || 0;
+    materialCount = data.materialCount || 0;
+    workHours = workHours || data.workHours || 0;
+    studyHours = studyHours || data.studyHours || 0;
+    sleepPts = sleepPts || data.sleepPts || 0;
+    lastWeekTotalPoints = data.lastWeekTotalPoints || 0;
+    lastMonthTotalPoints = data.lastMonthTotalPoints || 0;
+    currentWeekStart = data.currentWeekStart || getCurrentWeekStart();
+    weeklyEarned = data.weeklyEarned || 0;
+    weeklySpent = data.weeklySpent || 0;
+    monthlyEarned = data.monthlyEarned || 0;
+    monthlySpent = data.monthlySpent || 0;
+    // 如果剛重置過，強制存一次新日期（避免下次又判斷錯誤）
+    if (storedDate !== currentDateStr) {
+        saveData();
+    }
+    updateAll();
+}
 
         function saveData() {
             const data = {
