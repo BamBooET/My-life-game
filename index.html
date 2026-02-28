@@ -232,8 +232,8 @@
     redeemCount = redeemCount || data.redeemCount || {phone: 0, game: 0};
     workoutCount = data.workoutCount || 0;
     materialCount = data.materialCount || 0;
-    workHours = workHours || data.workHours || 0;
-    studyHours = studyHours || data.studyHours || 0;
+    workHours = (storedDate !== currentDateStr) ? 0 : (data.workHours || 0);
+studyHours = (storedDate !== currentDateStr) ? 0 : (data.studyHours || 0);
     sleepPts = sleepPts || data.sleepPts || 0;
     lastWeekTotalPoints = data.lastWeekTotalPoints || 0;
     lastMonthTotalPoints = data.lastMonthTotalPoints || 0;
