@@ -131,7 +131,7 @@
             <h2>獎勵兌換</h2>
             <button class="reward" id="redeem-phone">玩手機 15 分鐘（3 分）</button>
             <button class="reward" id="redeem-game">玩電動 30 分鐘（6 分）</button>
-            <button class="reward" id="prompt-buy">買非生活必要東西（1 分 = 3 元）</button>
+            <button class="reward" id="prompt-buy">買非生活必要東西（1 分 = 5 元）</button>
             <button class="reward reset-button" id="reset-points">手動清零積分（慎用！）</button>
         </div>
 
@@ -735,9 +735,9 @@ studyHours = (storedDate !== currentDateStr) ? 0 : (data.studyHours || 0);
         }
 
         function promptBuy() {
-            const money = prompt("想花多少元買東西？（1 分 = 3 元）");
+            const money = prompt("想花多少元買東西？（1 分 = 5 元）");
             if (!money || isNaN(money) || money <= 0) return;
-            const need = Math.ceil(money / 3);
+            const need = Math.ceil(money / 5);
             if (points < need) return alert("積分不足！需要 " + need + " 分");
             if (!confirm(`花 ${need} 分（${money} 元）購買？`)) return;
             points -= need;
